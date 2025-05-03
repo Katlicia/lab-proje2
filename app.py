@@ -766,7 +766,6 @@ def export_schedule():
                 cell.alignment = cell_alignment
                 
                 # Bu sınıfın yarıyıllarını belirle (her sınıf 2 yarıyıl içerir)
-                # 1. sınıf: 1-2, 2. sınıf: 3-4, 3. sınıf: 5-6, 4. sınıf: 7-8
                 first_semester = (grade - 1) * 2 + 1
                 second_semester = first_semester + 1
                 semesters = [first_semester, second_semester]
@@ -780,12 +779,12 @@ def export_schedule():
                     # Bu sınıfın yarıyıllarındaki dersleri bul
                     blm_courses = Course.query.filter(
                         Course.semester.in_(semesters),
-                        Course.department_id == blm_dept.id
+                        Course.departments.any(id=blm_dept.id)
                     ).all()
                     
                     yzm_courses = Course.query.filter(
                         Course.semester.in_(semesters),
-                        Course.department_id == yzm_dept.id
+                        Course.departments.any(id=yzm_dept.id)
                     ).all()
                     
                     # Tüm kurs ID'lerini birleştir
@@ -803,11 +802,15 @@ def export_schedule():
                             cell_text = []
                             for item in schedule_items:
                                 course = Course.query.get(item.course_id)
+                                if not course:
+                                    continue
+                                    
                                 classroom = Classroom.query.get(item.classroom_id)
                                 instructor = User.query.get(course.instructor_id) if course.instructor_id else None
                                 
-                                # Dersin yarıyılını da ekle
-                                dept_code = Department.query.get(course.department_id).code if course.department_id else ''
+                                # Dersin bölümünü bul
+                                dept = course.departments[0] if course.departments else None
+                                dept_code = dept.code if dept else ''
                                 
                                 course_info = (
                                     f"{course.code} - {course.name} ({dept_code}, {course.semester}. Yarıyıl)\n"
@@ -820,7 +823,8 @@ def export_schedule():
                                     
                                 cell_text.append(course_info)
                             
-                            cell.value = "\n\n".join(cell_text)
+                            if cell_text:
+                                cell.value = "\n\n".join(cell_text)
             
             # Satır yüksekliğini ayarla
             ws.row_dimensions[row].height = 150
@@ -840,9 +844,11 @@ def export_schedule():
         
     except Exception as e:
         # Hata durumunda logla ve kullanıcıya bildir
-        flash('Ders programı dışa aktarılırken bir hata oluştu!', 'error')
+        error_msg = f"Ders programı dışa aktarılırken bir hata oluştu: {str(e)}"
+        flash(error_msg, 'error')
         print(f"\n=== Hata ===")
         print(f"Hata mesajı: {str(e)}")
+        print(f"Hata türü: {type(e).__name__}")
         print("============\n")
         return redirect(url_for('view_schedule'))
 
