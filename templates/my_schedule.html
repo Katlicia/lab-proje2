@@ -7,6 +7,10 @@
         <a href="{{ url_for('export_my_schedule') }}" class="btn btn-success">Excel'e Aktar</a>
     </div>
 
+    <div class="alert alert-info">
+        <strong>Bilgi:</strong> Müsait olmadığınız zamanları belirlemek için aşağıdaki tabloda istediğiniz hücreye tıklayabilirsiniz. Kırmızı alanlar müsait olmadığınız saatleri gösterir.
+    </div>
+
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">
             <h4>{{ current_user.name }} - Ders Programı</h4>
@@ -54,10 +58,11 @@
     <div class="card">
         <div class="card-header">
             <h4>Haftalık Ders Programı Görünümü</h4>
+            <p class="text-muted">Müsait olmadığınız saatleri ayarlamak için boş hücrelere tıklayabilirsiniz.</p>
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-bordered">
+                <table class="table table-bordered" id="availabilityTable">
                     <thead>
                         <tr>
                             <th>Saat \ Gün</th>
@@ -71,16 +76,34 @@
                         <tr>
                             <td><strong>{{ hour }}</strong></td>
                             {% for day in days %}
-                            <td>
+                            <td class="time-slot" 
+                                data-day="{{ day }}" 
+                                data-hour="{{ hour }}"
+                                {% for unavailable in unavailable_times %}
+                                    {% if unavailable.day == day and unavailable.start_time <= hour and unavailable.end_time > hour %}
+                                    data-unavailable="true"
+                                    {% endif %}
+                                {% endfor %}
+                            >
+                                {% set has_schedule = false %}
                                 {% for schedule in schedule_items %}
-                                {% if schedule.day == day and (schedule.start_time <= hour and schedule.end_time > hour) %}
-                                <div class="schedule-item">
-                                    <strong>{{ schedule.course.code }}</strong><br>
-                                    {{ schedule.course.name }}<br>
-                                    {{ schedule.start_time }}-{{ schedule.end_time }}<br>
-                                    <small class="text-muted">{{ schedule.classroom.code }}</small>
-                                </div>
-                                {% endif %}
+                                    {% if schedule.day == day and (schedule.start_time <= hour and schedule.end_time > hour) %}
+                                        {% set has_schedule = true %}
+                                        <div class="schedule-item">
+                                            <strong>{{ schedule.course.code }}</strong><br>
+                                            {{ schedule.course.name }}<br>
+                                            {{ schedule.start_time }}-{{ schedule.end_time }}<br>
+                                            <small class="text-muted">{{ schedule.classroom.code }}</small>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% for unavailable in unavailable_times %}
+                                    {% if unavailable.day == day and unavailable.start_time <= hour and unavailable.end_time > hour and not has_schedule %}
+                                        <div class="unavailable-item">
+                                            Müsait Değilim
+                                        </div>
+                                    {% endif %}
                                 {% endfor %}
                             </td>
                             {% endfor %}
@@ -101,5 +124,138 @@
     border-radius: 4px;
     font-size: 0.9em;
 }
+
+.unavailable-item {
+    padding: 5px;
+    margin: 2px;
+    background-color: #ffeded;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: #dc3545;
+    border: 1px solid #dc3545;
+    text-align: center;
+}
+
+.time-slot[data-unavailable="true"] {
+    background-color: #ffeded;
+}
+
+.time-slot {
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.time-slot:hover {
+    background-color: #f0f0f0;
+}
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Tüm zaman dilimi hücrelerini seç
+    const timeSlots = document.querySelectorAll('.time-slot');
+    
+    // Her hücreye tıklama işlevi ekle
+    timeSlots.forEach(slot => {
+        slot.addEventListener('click', function() {
+            // Hücre zaten ders içeriyorsa işlem yapma
+            if (this.querySelector('.schedule-item')) {
+                return;
+            }
+            
+            const day = this.getAttribute('data-day');
+            const hour = this.getAttribute('data-hour');
+            const isUnavailable = this.getAttribute('data-unavailable') === 'true';
+            
+            // Müsait olmama durumunu değiştir
+            if (isUnavailable) {
+                // Müsait olmama durumunu kaldır
+                removeUnavailableTime(day, hour);
+                this.removeAttribute('data-unavailable');
+                const unavailableItem = this.querySelector('.unavailable-item');
+                if (unavailableItem) {
+                    unavailableItem.remove();
+                }
+            } else {
+                // Müsait olmama durumu ekle
+                addUnavailableTime(day, hour);
+                this.setAttribute('data-unavailable', 'true');
+                const unavailableItem = document.createElement('div');
+                unavailableItem.className = 'unavailable-item';
+                unavailableItem.textContent = 'Müsait Değilim';
+                this.appendChild(unavailableItem);
+            }
+        });
+    });
+    
+    // Müsait olmama durumu eklemek için AJAX çağrısı
+    function addUnavailableTime(day, hour) {
+        const nextHour = incrementHour(hour);
+        
+        fetch('/add_unavailable_time', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() if csrf_token }}'
+            },
+            body: JSON.stringify({
+                day: day,
+                start_time: hour,
+                end_time: nextHour
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Müsait olmama durumu eklendi');
+            } else {
+                console.error('Hata:', data.error);
+                alert('Bir hata oluştu: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Hata:', error);
+            alert('Bir hata oluştu: ' + error);
+        });
+    }
+    
+    // Müsait olmama durumunu kaldırmak için AJAX çağrısı
+    function removeUnavailableTime(day, hour) {
+        const nextHour = incrementHour(hour);
+        
+        fetch('/remove_unavailable_time', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() if csrf_token }}'
+            },
+            body: JSON.stringify({
+                day: day,
+                start_time: hour,
+                end_time: nextHour
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Müsait olmama durumu kaldırıldı');
+            } else {
+                console.error('Hata:', data.error);
+                alert('Bir hata oluştu: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Hata:', error);
+            alert('Bir hata oluştu: ' + error);
+        });
+    }
+    
+    // Saat değerini bir arttır (09:00 -> 10:00)
+    function incrementHour(timeStr) {
+        const hour = parseInt(timeStr.split(':')[0]);
+        const nextHour = (hour + 1) % 24;
+        return nextHour.toString().padStart(2, '0') + ':00';
+    }
+});
+</script>
 {% endblock %} 

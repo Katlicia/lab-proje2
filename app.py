@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from functools import wraps
@@ -421,7 +421,20 @@ def add_schedule():
             instructor = User.query.get(course.instructor_id)
             print(f"Ders öğretim üyesi: {instructor.name if instructor else 'Atanmamış'}")
             
-            # Bu gün ve saatte öğretim üyesinin başka dersi var mı kontrol et
+            # Öğretim üyesinin bu gün ve saatte müsait olmama durumu var mı kontrol et
+            unavailable_times = UnavailableTime.query.filter(
+                UnavailableTime.instructor_id == course.instructor_id,
+                UnavailableTime.day == day,
+                ((UnavailableTime.start_time <= start_time) & (UnavailableTime.end_time > start_time)) | 
+                ((UnavailableTime.start_time < end_time) & (UnavailableTime.end_time >= end_time)) |
+                ((UnavailableTime.start_time >= start_time) & (UnavailableTime.end_time <= end_time))
+            ).all()
+            
+            if unavailable_times:
+                print(f'Öğretim üyesi ({instructor.name}) bu zaman diliminde müsait değil!', 'error')
+                return False, None
+            
+            # Öğretim üyesinin bu zaman diliminde başka dersi var mı kontrol et
             instructor_conflicts = Schedule.query.join(Course).filter(
                 Schedule.day == day,
                 Schedule.start_time < end_time,
@@ -438,8 +451,8 @@ def add_schedule():
                 
                 # Öğretim üyesi çakışması varsa uyar
                 conflict_message = ", ".join(conflict_details)
-                flash(f'Öğretim üyesi ({instructor.name}) bu saatte başka bir derste meşgul: {conflict_message}', 'error')
-                return redirect(url_for('view_schedule'))
+                print(f'Öğretim üyesi ({instructor.name}) başka derste meşgul', 'error')
+                return False, None
 
         # Seçilen derslik ve zamanda başka ders var mı kontrol et
         classroom_conflicts = Schedule.query.filter(
@@ -908,6 +921,9 @@ def generate_schedule(term=None):
     term: "guz" veya "bahar" olabilir. Güz ise 1,3,5,7. yarıyıllar, Bahar ise 2,4,6,8. yarıyıllar.
     """
     try:
+        # Debug modunu kapalı tut - çok fazla loglama olmasın
+        debug_mode = False
+        
         # Mevcut programı temizle
         Schedule.query.delete()
         
@@ -960,8 +976,9 @@ def generate_schedule(term=None):
         
         print(f"\n=== {term_name} Dönemi Programı Oluşturuluyor ===")
         print(f"İşlenecek yarıyıllar: {semesters}")
-        print(f"BLM ders sayısı: {len(blm_courses)}")
-        print(f"YZM ders sayısı: {len(yzm_courses)}")
+        if debug_mode:
+            print(f"BLM ders sayısı: {len(blm_courses)}")
+            print(f"YZM ders sayısı: {len(yzm_courses)}")
         
         # Ortak dersleri bul (her iki bölüme de ait olan dersler)
         common_courses = []
@@ -974,27 +991,28 @@ def generate_schedule(term=None):
             if blm_dept.id in departments and yzm_dept.id in departments:
                 common_courses.append(course)
         
-        print(f"Ortak ders sayısı: {len(common_courses)}")
-        
-        # Debug: Tüm dersleri yazdır
-        print("\n=== TÜM DERSLER ===")
-        print("BLM Dersleri:")
-        for course in blm_courses:
-            # Her dersin bölümlerini göster
-            dept_codes = [d.code for d in course.departments]
-            print(f"- {course.code} - {course.name} (Yarıyıl: {course.semester}, Bölümler: {', '.join(dept_codes)})")
-        
-        print("\nYZM Dersleri:")
-        for course in yzm_courses:
-            # Her dersin bölümlerini göster
-            dept_codes = [d.code for d in course.departments]
-            print(f"- {course.code} - {course.name} (Yarıyıl: {course.semester}, Bölümler: {', '.join(dept_codes)})")
-        
-        print("\n=== ORTAK DERSLER ===")
-        for course in common_courses:
-            # Ortak dersleri göster
-            dept_codes = [d.code for d in course.departments]
-            print(f"- {course.code} - {course.name} (Yarıyıl: {course.semester}, Bölümler: {', '.join(dept_codes)})")
+        if debug_mode:
+            print(f"Ortak ders sayısı: {len(common_courses)}")
+            
+            # Debug: Tüm dersleri yazdır
+            print("\n=== TÜM DERSLER ===")
+            print("BLM Dersleri:")
+            for course in blm_courses:
+                # Her dersin bölümlerini göster
+                dept_codes = [d.code for d in course.departments]
+                print(f"- {course.code} - {course.name} (Yarıyıl: {course.semester}, Bölümler: {', '.join(dept_codes)})")
+            
+            print("\nYZM Dersleri:")
+            for course in yzm_courses:
+                # Her dersin bölümlerini göster
+                dept_codes = [d.code for d in course.departments]
+                print(f"- {course.code} - {course.name} (Yarıyıl: {course.semester}, Bölümler: {', '.join(dept_codes)})")
+            
+            print("\n=== ORTAK DERSLER ===")
+            for course in common_courses:
+                # Ortak dersleri göster
+                dept_codes = [d.code for d in course.departments]
+                print(f"- {course.code} - {course.name} (Yarıyıl: {course.semester}, Bölümler: {', '.join(dept_codes)})")
             
         # Yerleştirilen derslerin izlenmesi için set
         scheduled_courses = set()
@@ -1007,25 +1025,37 @@ def generate_schedule(term=None):
             if course.instructor_id:
                 instructor = User.query.get(course.instructor_id)
                 
-                # Öğretim üyesi müsait mi kontrol et
-                for ut in unavailable_times:
-                    if (ut.instructor_id == instructor.id and
-                        ut.day == day and
-                        ut.start_time <= end_time and
-                        ut.end_time >= start_time):
-                        print(f"ÖĞRT.ÜYESİ MÜSAİT DEĞİL: {course.code} dersi için {instructor.name} öğretim üyesi {day} günü {start_time}-{end_time} saatinde müsait değil!")
-                        return False, None
+                # Öğretim üyesinin bu gün ve saatte müsait olmama durumu var mı kontrol et
+                unavailable_times = UnavailableTime.query.filter(
+                    UnavailableTime.instructor_id == course.instructor_id,
+                    UnavailableTime.day == day,
+                    ((UnavailableTime.start_time <= start_time) & (UnavailableTime.end_time > start_time)) | 
+                    ((UnavailableTime.start_time < end_time) & (UnavailableTime.end_time >= end_time)) |
+                    ((UnavailableTime.start_time >= start_time) & (UnavailableTime.end_time <= end_time))
+                ).all()
+                
+                if unavailable_times:
+                    if debug_mode:
+                        print(f'Öğretim üyesi ({instructor.name}) bu zaman diliminde müsait değil!')
+                    return False, None
                 
                 # Öğretim üyesinin bu zaman diliminde başka dersi var mı kontrol et
-                instructor_schedules = Schedule.query.join(Course).filter(
+                instructor_conflicts = Schedule.query.join(Course).filter(
                     Schedule.day == day,
-                    Schedule.start_time == start_time,
-                    Schedule.end_time == end_time,
+                    Schedule.start_time < end_time,
+                    Schedule.end_time > start_time,
                     Course.instructor_id == course.instructor_id
                 ).all()
                 
-                if instructor_schedules:
-                    print(f"ÖĞRT.ÜYESİ ÇAKIŞMASI: {course.code} dersi {day} günü {start_time}-{end_time} için {instructor.name} öğretim üyesi zaten başka bir derste!")
+                if instructor_conflicts:
+                    if debug_mode:
+                        conflict_details = []
+                        for conflict in instructor_conflicts:
+                            conflict_course = Course.query.get(conflict.course_id)
+                            conflict_classroom = Classroom.query.get(conflict.classroom_id)
+                            conflict_details.append(f"{conflict_course.code} ({conflict_classroom.code}, {conflict.start_time}-{conflict.end_time})")
+                        conflict_message = ", ".join(conflict_details)
+                        print(f'Öğretim üyesi ({instructor.name}) başka derste meşgul: {conflict_message}')
                     return False, None
             
             # Bu ders için yarıyıldaki diğer derslerin çakışma kontrolü
@@ -1047,12 +1077,12 @@ def generate_schedule(term=None):
                 ).all()
                 
                 if conflict_schedules:
-                    conflict_courses = []
-                    for schedule in conflict_schedules:
-                        conflict_course = Course.query.get(schedule.course_id)
-                        conflict_courses.append(f"{conflict_course.code}")
-                    
-                    print(f"ÇAKIŞMA: {course.code} dersi {day} günü {start_time}-{end_time} saatinde {dept.code} bölümü {semester}. yarıyıldaki şu derslerle çakışıyor: {', '.join(conflict_courses)}")
+                    if debug_mode:
+                        conflict_courses = []
+                        for schedule in conflict_schedules:
+                            conflict_course = Course.query.get(schedule.course_id)
+                            conflict_courses.append(f"{conflict_course.code}")
+                        print(f"ÇAKIŞMA: {course.code} dersi {day} günü {start_time}-{end_time} saatinde {dept.code} bölümü {semester}. yarıyıldaki şu derslerle çakışıyor: {', '.join(conflict_courses)}")
                     return False, None
             
             # Uygun derslik bul
@@ -1095,7 +1125,8 @@ def generate_schedule(term=None):
                     suitable_classroom = random.choice(free_classrooms)
             
             if not suitable_classroom:
-                print(f"DERSLİK BULUNAMADI: {course.code} dersi için {day} günü {start_time}-{end_time} saatinde uygun derslik yok!")
+                if debug_mode:
+                    print(f"DERSLİK BULUNAMADI: {course.code} dersi için {day} günü {start_time}-{end_time} saatinde uygun derslik yok!")
                 return False, None
             
             # Programa ekle
@@ -1107,7 +1138,8 @@ def generate_schedule(term=None):
                 end_time=end_time
             )
             db.session.add(schedule)
-            print(f"YERLEŞTİRİLDİ: {course.code} dersi {day} günü {start_time}-{end_time} saatlerinde {suitable_classroom.code} dersliğine yerleştirildi.")
+            if debug_mode:
+                print(f"YERLEŞTİRİLDİ: {course.code} dersi {day} günü {start_time}-{end_time} saatlerinde {suitable_classroom.code} dersliğine yerleştirildi.")
             return True, suitable_classroom
         
         # 1. ADIM: ORTAK DERSLERİ PROGRAMLA
@@ -1115,14 +1147,16 @@ def generate_schedule(term=None):
         for course in common_courses:
             # Bu ders daha önce programlanmış mı kontrol et
             if course.code in scheduled_courses:
-                print(f"ATLANDI: {course.code} dersi zaten programlanmış.")
+                if debug_mode:
+                    print(f"ATLANDI: {course.code} dersi zaten programlanmış.")
                 continue
                 
             placed = False
             attempts = 0
             max_attempts = 100
             
-            print(f"ORTAK DERS: {course.code} - {course.name} (Bölümler: {', '.join([d.code for d in course.departments])})")
+            if debug_mode:
+                print(f"ORTAK DERS: {course.code} - {course.name} (Bölümler: {', '.join([d.code for d in course.departments])})")
             
             while not placed and attempts < max_attempts:
                 day = random.choice(days)
@@ -1193,7 +1227,8 @@ def generate_schedule(term=None):
         # Özet bilgiler
         print(f"\n=== PROGRAM OLUŞTURMA TAMAMLANDI ===")
         print(f"Toplam programlanan ders sayısı: {len(scheduled_courses)}")
-        print(f"Toplam ortak ders sayısı: {len(common_courses)}")
+        if debug_mode:
+            print(f"Toplam ortak ders sayısı: {len(common_courses)}")
         
         return True, f"{term_name} dönemi için ders programı başarıyla oluşturuldu."
         
@@ -1253,11 +1288,94 @@ def my_schedule():
         items = Schedule.query.filter_by(course_id=course.id).all()
         schedule_items.extend(items)
     
+    # Öğretim üyesinin müsait olmadığı zamanları getir
+    unavailable_times = UnavailableTime.query.filter_by(instructor_id=current_user.id).all()
+    
     return render_template('my_schedule.html',
                           schedule_items=schedule_items,
                           days=days,
-                          hours=hours)
+                          hours=hours,
+                          unavailable_times=unavailable_times)
 
+# Müsait olmama durumu eklemek için AJAX endpoint
+@app.route('/add_unavailable_time', methods=['POST'])
+@login_required
+def add_unavailable_time():
+    """
+    Öğretim üyesi için müsait olmama durumu ekler
+    JSON verisi içinde day, start_time ve end_time bilgilerini bekler
+    """
+    if current_user.role != 'instructor':
+        return jsonify(success=False, error="Bu işlem için yetkiniz yok.")
+    
+    try:
+        data = request.get_json()
+        day = data.get('day')
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
+        
+        # Aynı zaman diliminde başka bir kayıt var mı kontrol et
+        existing = UnavailableTime.query.filter_by(
+            instructor_id=current_user.id,
+            day=day,
+            start_time=start_time,
+            end_time=end_time
+        ).first()
+        
+        if existing:
+            return jsonify(success=True, message="Bu zaman dilimi zaten müsait değil olarak işaretlenmiş.")
+        
+        # Yeni müsait olmama durumu oluştur
+        unavailable_time = UnavailableTime(
+            instructor_id=current_user.id,
+            day=day,
+            start_time=start_time,
+            end_time=end_time,
+            reason="Tablo üzerinden ayarlandı"
+        )
+        
+        db.session.add(unavailable_time)
+        db.session.commit()
+        
+        return jsonify(success=True)
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, error=str(e))
+
+# Müsait olmama durumunu kaldırmak için AJAX endpoint
+@app.route('/remove_unavailable_time', methods=['POST'])
+@login_required
+def remove_unavailable_time():
+    """
+    Öğretim üyesi için müsait olmama durumunu kaldırır
+    JSON verisi içinde day, start_time ve end_time bilgilerini bekler
+    """
+    if current_user.role != 'instructor':
+        return jsonify(success=False, error="Bu işlem için yetkiniz yok.")
+    
+    try:
+        data = request.get_json()
+        day = data.get('day')
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
+        
+        # İlgili müsait olmama kaydını bul
+        unavailable_time = UnavailableTime.query.filter_by(
+            instructor_id=current_user.id,
+            day=day,
+            start_time=start_time,
+            end_time=end_time
+        ).first()
+        
+        if unavailable_time:
+            db.session.delete(unavailable_time)
+            db.session.commit()
+            return jsonify(success=True)
+        
+        return jsonify(success=False, error="Bu zaman dilimi için müsait olmama kaydı bulunamadı.")
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, error=str(e))
 
 # Öğretim üyelerinin ders programlarını görüntüleme sayfası
 @app.route('/instructor_schedules')
