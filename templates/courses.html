@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Ders ekle formu -->
+    <div class="modal fade" id="addCourseModal" tabindex="-1" aria-labelledby="addCourseModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addCourseModalLabel">Yeni Ders Ekle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="{{ url_for('courses') }}" method="POST">
+                        <div class="mb-3">
+                            <label for="code" class="form-label">Ders Kodu</label>
+                            <input type="text" class="form-control" id="code" name="code" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Ders Adı</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="department_ids" class="form-label">Bölümler (birden fazla seçilebilir)</label>
+                            <select multiple class="form-select" id="department_ids" name="department_ids" required>
+                                {% for department in departments %}
+                                <option value="{{ department.id }}">{{ department.code }} - {{ department.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">Birden fazla seçim için CTRL tuşuna basılı tutun.</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="theory" class="form-label">Teori Ders Saati</label>
+                            <input type="number" class="form-control" id="theory" name="theory" min="0" value="0" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="practice" class="form-label">Uygulama Ders Saati</label>
+                            <input type="number" class="form-control" id="practice" name="practice" min="0" value="0" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="credits" class="form-label">Kredi</label>
+                            <input type="number" class="form-control" id="credits" name="credits" min="0" value="0" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="instructor_id" class="form-label">Öğretim Üyesi</label>
+                            <select class="form-select" id="instructor_id" name="instructor_id">
+                                <option value="">Seçiniz</option>
+                                {% for instructor in instructors %}
+                                <option value="{{ instructor.id }}">{{ instructor.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="semester" class="form-label">Yarıyıl</label>
+                            <select class="form-select" id="semester" name="semester" required>
+                                {% for i in range(1, 9) %}
+                                <option value="{{ i }}">{{ i }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="is_mandatory" name="is_mandatory" checked>
+                            <label class="form-check-label" for="is_mandatory">
+                                Zorunlu Ders
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Ders Ekle</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dersler tablosu -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Dersler</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Ders Kodu</th>
+                            <th>Ders Adı</th>
+                            <th>Bölümler</th>
+                            <th>Yarıyıl</th>
+                            <th>Öğretim Üyesi</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for course in courses %}
+                        <tr>
+                            <td>{{ course.code }}</td>
+                            <td>{{ course.name }}</td>
+                            <td>
+                                {% for dept in course.departments %}
+                                <span class="badge bg-primary">{{ dept.code }}</span>
+                                {% endfor %}
+                            </td>
+                            <td>{{ course.semester }}</td>
+                            <td>{{ course.instructor.name if course.instructor else 'Atanmamış' }}</td>
+                            <td>
+                                <a href="{{ url_for('edit_course', course_id=course.id) }}" class="btn btn-sm btn-primary">Düzenle</a>
+                                <form action="{{ url_for('delete_course', course_id=course.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu dersi silmek istediğinize emin misiniz?')">
+                                    <button type="submit" class="btn btn-sm btn-danger">Sil</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Tüm silme formlarını seç
+    const deleteForms = document.querySelectorAll('form');
+    
+    // Her bir forma olay dinleyicisi ekle
+    deleteForms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            // Varsayılan gönderme davranışını engelle
+            e.preventDefault();
+            
+            // Onay iletişim kutusu göster
+            if (confirm('Bu dersi silmek istediğinize emin misiniz?')) {
+                // Kullanıcı onaylarsa formu gönder
+                this.submit();
+            }
+        });
+    });
+});
+</script>
+{% endblock %} 

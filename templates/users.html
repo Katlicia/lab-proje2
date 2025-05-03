@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Kullanıcı Ekleme Formu -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Yeni Kullanıcı Ekle</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('users') }}">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Kullanıcı Adı</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Şifre</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Ad Soyad</label>
+                            <input type="text" class="form-control" id="name" name="name">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Rol</label>
+                            <select class="form-select" id="role" name="role" required onchange="showAdditionalFields()">
+                                <option value="admin">Yönetici</option>
+                                <option value="instructor">Öğretim Üyesi</option>
+                                <option value="student">Öğrenci</option>
+                                <option value="user">Standart Kullanıcı</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4" id="department_field" style="display:none;">
+                        <div class="mb-3">
+                            <label for="department_id" class="form-label">Bölüm</label>
+                            <select class="form-select" id="department_id" name="department_id">
+                                <option value="">Bölüm Seçin</option>
+                                {% for department in departments %}
+                                <option value="{{ department.id }}">{{ department.code }} - {{ department.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4" id="extra_field" style="display:none;">
+                        <div class="mb-3">
+                            <label for="extra_info" id="extra_info_label" class="form-label">Ek Bilgi</label>
+                            <input type="text" class="form-control" id="extra_info" name="extra_info">
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Kullanıcı Ekle</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Kullanıcılar Tablosu -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Kullanıcılar</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Kullanıcı Adı</th>
+                            <th>Ad Soyad</th>
+                            <th>Rol</th>
+                            <th>Bölüm</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.username }}</td>
+                            <td>{{ user.name or '-' }}</td>
+                            <td>
+                                {% if user.role == 'admin' %}
+                                    Yönetici
+                                {% elif user.role == 'instructor' %}
+                                    Öğretim Üyesi
+                                {% elif user.role == 'student' %}
+                                    Öğrenci
+                                {% else %}
+                                    Standart Kullanıcı
+                                {% endif %}
+                            </td>
+                            <td>{{ user.department.code if user.department else '-' }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning">Düzenle</button>
+                                <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-primary delete-btn">Sil</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showAdditionalFields() {
+    const role = document.getElementById('role').value;
+    const departmentField = document.getElementById('department_field');
+    const extraField = document.getElementById('extra_field');
+    const extraInfoLabel = document.getElementById('extra_info_label');
+    
+    // Tüm ek alanları başlangıçta gizle
+    departmentField.style.display = 'none';
+    extraField.style.display = 'none';
+    
+    // Rol tipine göre gösterilecek alanları belirle
+    if (role === 'instructor') {
+        departmentField.style.display = 'block';
+        extraField.style.display = 'block';
+        extraInfoLabel.innerText = 'Uzmanlık Alanı';
+    } else if (role === 'student') {
+        departmentField.style.display = 'block';
+        extraField.style.display = 'block';
+        extraInfoLabel.innerText = 'Öğrenci Numarası';
+    }
+}
+
+// Sayfa yüklendiğinde alanları doğru şekilde göster
+document.addEventListener('DOMContentLoaded', function() {
+    showAdditionalFields();
+});
+
+// Kullanıcı silme formları için olay dinleyicisi
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteForms = document.querySelectorAll('form[action^="/users/delete/"]');
+    
+    deleteForms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?')) {
+                this.submit();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

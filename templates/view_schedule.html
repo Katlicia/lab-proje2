@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Ders Programı</h2>
+        {% if current_user.role == 'admin' %}
+        <div>
+            <button type="button" class="btn btn-warning" data-toggle="modal" data-target="#semesterModal">
+                Otomatik Program Oluştur
+            </button>
+            <a href="{{ url_for('export_schedule') }}" class="btn btn-success">Excel'e Aktar</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Yarıyıl Seçim Modalı -->
+    <div class="modal fade" id="semesterModal" tabindex="-1" role="dialog" aria-labelledby="semesterModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="semesterModalLabel">Dönem Seçimi</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" action="{{ url_for('generate_schedule_route') }}">
+                        <div class="form-group">
+                            <label for="term">Dönemi Seçiniz:</label>
+                            <select class="form-control" id="term" name="term" required>
+                                <option value="guz">Güz Dönemi (1, 3, 5, 7. Yarıyıllar)</option>
+                                <option value="bahar">Bahar Dönemi (2, 4, 6, 8. Yarıyıllar)</option>
+                            </select>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">İptal</button>
+                            <button type="submit" class="btn btn-warning" onclick="return confirm('Mevcut program silinecek ve seçilen dönem için yeni program oluşturulacak. Devam etmek istiyor musunuz?')">
+                                Programı Oluştur
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Program ekleme formu -->
+    {% if current_user.role == 'admin' %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Program Ekle</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('add_schedule') }}">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="course_id">Ders</label>
+                            <select class="form-control" id="course_id" name="course_id" required>
+                                <option value="">Ders Seçin</option>
+                                {% for course in courses %}
+                                <option value="{{ course.id }}">{{ course.code }} - {{ course.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="classroom_id">Derslik</label>
+                            <select class="form-control" id="classroom_id" name="classroom_id" required>
+                                <option value="">Derslik Seçin</option>
+                                {% for classroom in classrooms %}
+                                <option value="{{ classroom.id }}">{{ classroom.code }} ({{ classroom.capacity }} kişilik)</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label for="day">Gün</label>
+                            <select class="form-control" id="day" name="day" required>
+                                <option value="">Gün Seçin</option>
+                                {% for day in days %}
+                                <option value="{{ day }}">{{ day }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label for="start_time">Başlangıç</label>
+                            <input type="time" class="form-control" id="start_time" name="start_time" required>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label for="end_time">Bitiş</label>
+                            <input type="time" class="form-control" id="end_time" name="end_time" required>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Ekle</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- BLM Bölümü Program tablosu -->
+    {% if blm_dept %}
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4>{{ blm_dept.name }} ({{ blm_dept.code }}) Ders Programı</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Gün/Saat</th>
+                            <th>1. Sınıf</th>
+                            <th>2. Sınıf</th>
+                            <th>3. Sınıf</th>
+                            <th>4. Sınıf</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for day in days %}
+                        <tr>
+                            <td><strong>{{ day }}</strong></td>
+                            <!-- 1. Sınıf -->
+                            <td>
+                                {% for schedule in blm_schedule_items|sort(attribute='start_time') %}
+                                {% if schedule.day == day and schedule.course.semester <= 2 %}
+                                <div class="schedule-item">
+                                    <strong>{{ schedule.course.code }}</strong><br>
+                                    {{ schedule.course.name }}<br>
+                                    {{ schedule.start_time }}-{{ schedule.end_time }}<br>
+                                    <small class="text-muted">{{ schedule.classroom.code }}</small>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </td>
+                            <!-- 2. Sınıf -->
+                            <td>
+                                {% for schedule in blm_schedule_items|sort(attribute='start_time') %}
+                                {% if schedule.day == day and schedule.course.semester > 2 and schedule.course.semester <= 4 %}
+                                <div class="schedule-item">
+                                    <strong>{{ schedule.course.code }}</strong><br>
+                                    {{ schedule.course.name }}<br>
+                                    {{ schedule.start_time }}-{{ schedule.end_time }}<br>
+                                    <small class="text-muted">{{ schedule.classroom.code }}</small>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </td>
+                            <!-- 3. Sınıf -->
+                            <td>
+                                {% for schedule in blm_schedule_items|sort(attribute='start_time') %}
+                                {% if schedule.day == day and schedule.course.semester > 4 and schedule.course.semester <= 6 %}
+                                <div class="schedule-item">
+                                    <strong>{{ schedule.course.code }}</strong><br>
+                                    {{ schedule.course.name }}<br>
+                                    {{ schedule.start_time }}-{{ schedule.end_time }}<br>
+                                    <small class="text-muted">{{ schedule.classroom.code }}</small>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </td>
+                            <!-- 4. Sınıf -->
+                            <td>
+                                {% for schedule in blm_schedule_items|sort(attribute='start_time') %}
+                                {% if schedule.day == day and schedule.course.semester > 6 %}
+                                <div class="schedule-item">
+                                    <strong>{{ schedule.course.code }}</strong><br>
+                                    {{ schedule.course.name }}<br>
+                                    {{ schedule.start_time }}-{{ schedule.end_time }}<br>
+                                    <small class="text-muted">{{ schedule.classroom.code }}</small>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- YZM Bölümü Program tablosu -->
+    {% if yzm_dept %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h4>{{ yzm_dept.name }} ({{ yzm_dept.code }}) Ders Programı</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Gün/Saat</th>
+                            <th>1. Sınıf</th>
+                            <th>2. Sınıf</th>
+                            <th>3. Sınıf</th>
+                            <th>4. Sınıf</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for day in days %}
+                        <tr>
+                            <td><strong>{{ day }}</strong></td>
+                            <!-- 1. Sınıf -->
+                            <td>
+                                {% for schedule in yzm_schedule_items|sort(attribute='start_time') %}
+                                {% if schedule.day == day and schedule.course.semester <= 2 %}
+                                <div class="schedule-item">
+                                    <strong>{{ schedule.course.code }}</strong><br>
+                                    {{ schedule.course.name }}<br>
+                                    {{ schedule.start_time }}-{{ schedule.end_time }}<br>
+                                    <small class="text-muted">{{ schedule.classroom.code }}</small>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </td>
+                            <!-- 2. Sınıf -->
+                            <td>
+                                {% for schedule in yzm_schedule_items|sort(attribute='start_time') %}
+                                {% if schedule.day == day and schedule.course.semester > 2 and schedule.course.semester <= 4 %}
+                                <div class="schedule-item">
+                                    <strong>{{ schedule.course.code }}</strong><br>
+                                    {{ schedule.course.name }}<br>
+                                    {{ schedule.start_time }}-{{ schedule.end_time }}<br>
+                                    <small class="text-muted">{{ schedule.classroom.code }}</small>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </td>
+                            <!-- 3. Sınıf -->
+                            <td>
+                                {% for schedule in yzm_schedule_items|sort(attribute='start_time') %}
+                                {% if schedule.day == day and schedule.course.semester > 4 and schedule.course.semester <= 6 %}
+                                <div class="schedule-item">
+                                    <strong>{{ schedule.course.code }}</strong><br>
+                                    {{ schedule.course.name }}<br>
+                                    {{ schedule.start_time }}-{{ schedule.end_time }}<br>
+                                    <small class="text-muted">{{ schedule.classroom.code }}</small>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </td>
+                            <!-- 4. Sınıf -->
+                            <td>
+                                {% for schedule in yzm_schedule_items|sort(attribute='start_time') %}
+                                {% if schedule.day == day and schedule.course.semester > 6 %}
+                                <div class="schedule-item">
+                                    <strong>{{ schedule.course.code }}</strong><br>
+                                    {{ schedule.course.name }}<br>
+                                    {{ schedule.start_time }}-{{ schedule.end_time }}<br>
+                                    <small class="text-muted">{{ schedule.classroom.code }}</small>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.schedule-item {
+    padding: 5px;
+    margin: 2px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+</style>
+{% endblock %} 

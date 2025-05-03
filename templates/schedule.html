@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Ders Programı Oluşturma</h2>
+
+<!-- Ders Ekleme Formu -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Ders Programına Ders Ekle</h5>
+        <form method="POST" class="row g-3">
+            <div class="col-md-3">
+                <label for="course_id" class="form-label">Ders</label>
+                <select class="form-control" id="course_id" name="course_id" required>
+                    <option value="">Seçiniz...</option>
+                    {% for course in courses %}
+                    <option value="{{ course.id }}">{{ course.code }} - {{ course.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="classroom_id" class="form-label">Derslik</label>
+                <select class="form-control" id="classroom_id" name="classroom_id" required>
+                    <option value="">Seçiniz...</option>
+                    {% for classroom in classrooms %}
+                    <option value="{{ classroom.id }}">{{ classroom.code }} ({{ classroom.capacity }} kişilik)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="day" class="form-label">Gün</label>
+                <select class="form-control" id="day" name="day" required>
+                    {% for day in days %}
+                    <option value="{{ day.name }}">{{ day.value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="start_time" class="form-label">Başlangıç Saati</label>
+                <input type="time" class="form-control" id="start_time" name="start_time" required>
+            </div>
+            <div class="col-md-2">
+                <label for="end_time" class="form-label">Bitiş Saati</label>
+                <input type="time" class="form-control" id="end_time" name="end_time" required>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Programa Ekle</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Haftalık Ders Programı -->
+<div class="table-responsive">
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Saat\Gün</th>
+                {% for day in days %}
+                <th>{{ day.value }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for hour in range(8, 22) %}
+            <tr>
+                <td>{{ "%02d:00"|format(hour) }}</td>
+                {% for day in days %}
+                <td>
+                    {% for item in schedule_items %}
+                        {% if item.day.value == day.value and item.start_time.hour == hour %}
+                        <div class="schedule-item">
+                            <strong>{{ item.course.code }}</strong><br>
+                            {{ item.classroom.code }}<br>
+                            {{ item.start_time.strftime('%H:%M') }} - {{ item.end_time.strftime('%H:%M') }}
+                            <a href="/schedule/delete/{{ item.id }}" class="btn btn-sm btn-danger float-end"
+                               onclick="return confirm('Bu dersi programdan kaldırmak istediğinize emin misiniz?')">×</a>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- CSS Stilleri -->
+<style>
+.schedule-item {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px;
+    margin: 2px;
+    font-size: 0.9em;
+}
+</style>
+{% endblock %}

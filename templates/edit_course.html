@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Ders Düzenle - {{ course.code }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Ders Düzenle: {{ course.code }} - {{ course.name }}</h2>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('edit_course', course_id=course.id) }}">
+                <div class="mb-3">
+                    <label for="code" class="form-label">Ders Kodu</label>
+                    <input type="text" class="form-control" id="code" value="{{ course.code }}" disabled>
+                </div>
+                <div class="mb-3">
+                    <label for="name" class="form-label">Ders Adı</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ course.name }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="department_ids" class="form-label">Bölümler (birden fazla seçilebilir)</label>
+                    <select multiple class="form-select" id="department_ids" name="department_ids" required>
+                        {% for department in departments %}
+                        <option value="{{ department.id }}" {% if department.id in course_department_ids %}selected{% endif %}>
+                            {{ department.code }} - {{ department.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="form-text text-muted">Birden fazla seçim için CTRL tuşuna basılı tutun.</small>
+                </div>
+                <div class="mb-3">
+                    <label for="theory" class="form-label">Teori Ders Saati</label>
+                    <input type="number" class="form-control" id="theory" name="theory" min="0" value="{{ course.theory }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="practice" class="form-label">Uygulama Ders Saati</label>
+                    <input type="number" class="form-control" id="practice" name="practice" min="0" value="{{ course.practice }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="credits" class="form-label">Kredi</label>
+                    <input type="number" class="form-control" id="credits" name="credits" min="0" value="{{ course.credits }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="instructor_id" class="form-label">Öğretim Üyesi</label>
+                    <select class="form-select" id="instructor_id" name="instructor_id">
+                        <option value="">Seçiniz</option>
+                        {% for instructor in instructors %}
+                        <option value="{{ instructor.id }}" {% if course.instructor_id == instructor.id %}selected{% endif %}>
+                            {{ instructor.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="semester" class="form-label">Yarıyıl</label>
+                    <select class="form-select" id="semester" name="semester" required>
+                        {% for i in range(1, 9) %}
+                        <option value="{{ i }}" {% if course.semester == i %}selected{% endif %}>{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="is_mandatory" name="is_mandatory" 
+                           {% if course.is_mandatory %}checked{% endif %}>
+                    <label class="form-check-label" for="is_mandatory">
+                        Zorunlu Ders
+                    </label>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-primary">Kaydet</button>
+                    <a href="{{ url_for('courses') }}" class="btn btn-secondary">İptal</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

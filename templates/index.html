@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Ders Programı Yönetim Sistemi</h2>
+    
+    {% if current_user.is_authenticated %}
+        {% if current_user.role == 'admin' %}
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Kullanıcı Yönetimi</h5>
+                        <p class="card-text">Kullanıcıları ekle, düzenle ve sil.</p>
+                        <a href="{{ url_for('manage_users') }}" class="btn btn-primary">Kullanıcıları Yönet</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Ders Yönetimi</h5>
+                        <p class="card-text">Dersleri ekle, düzenle ve sil.</p>
+                        <a href="{{ url_for('manage_courses') }}" class="btn btn-primary">Dersleri Yönet</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Derslik Yönetimi</h5>
+                        <p class="card-text">Derslikleri ekle, düzenle ve sil.</p>
+                        <a href="{{ url_for('manage_classrooms') }}" class="btn btn-primary">Derslikleri Yönet</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if current_user.role == 'instructor' %}
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Müsaitlik Durumu</h5>
+                        <p class="card-text">Müsait olmadığınız zamanları belirleyin.</p>
+                        <a href="{{ url_for('manage_unavailable_times') }}" class="btn btn-primary">Müsaitlik Durumunu Yönet</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Ders Programı</h5>
+                        <p class="card-text">Ders programını görüntüle ve düzenle.</p>
+                        <a href="{{ url_for('view_schedule') }}" class="btn btn-primary">Programı Görüntüle</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Ders Programı</h5>
+                        <p class="card-text">Ders programını görüntüle ve Excel'e aktar.</p>
+                        <a href="{{ url_for('view_schedule') }}" class="btn btn-primary">Programı Görüntüle</a>
+                        <a href="{{ url_for('export_schedule') }}" class="btn btn-success">Excel'e Aktar</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            Lütfen giriş yapın veya kayıt olun.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

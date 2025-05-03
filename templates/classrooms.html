@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Derslik Ekleme Formu -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Yeni Derslik Ekle</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('classrooms') }}">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="code" class="form-label">Derslik Kodu</label>
+                            <input type="text" class="form-control" id="code" name="code" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="capacity" class="form-label">Kapasite</label>
+                            <input type="number" class="form-control" id="capacity" name="capacity" required>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Derslik Ekle</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Derslikler Tablosu -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Derslikler</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Derslik Kodu</th>
+                            <th>Kapasite</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for classroom in classrooms %}
+                        <tr>
+                            <td>{{ classroom.code }}</td>
+                            <td>{{ classroom.capacity }}</td>
+                            <td>
+                                <a href="{{ url_for('edit_classroom', classroom_id=classroom.id) }}" class="btn btn-sm btn-warning">Düzenle</a>
+                                <form method="POST" action="{{ url_for('delete_classroom', classroom_id=classroom.id) }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-primary delete-btn">Sil</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Tüm silme formlarını seç
+    const deleteForms = document.querySelectorAll('form');
+    
+    // Her bir forma olay dinleyicisi ekle
+    deleteForms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            // Varsayılan gönderme davranışını engelle
+            e.preventDefault();
+            
+            // Onay iletişim kutusu göster
+            if (confirm('Bu dersliği silmek istediğinize emin misiniz?')) {
+                // Kullanıcı onaylarsa formu gönder
+                this.submit();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

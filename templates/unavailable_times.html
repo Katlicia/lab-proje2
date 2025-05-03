@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Müsait Olmayan Zamanlarım</h2>
+    
+    <!-- Müsait olmayan zaman ekleme formu -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Yeni Müsait Olmayan Zaman Ekle</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="day">Gün</label>
+                            <select class="form-control" id="day" name="day" required>
+                                <option value="Pazartesi">Pazartesi</option>
+                                <option value="Salı">Salı</option>
+                                <option value="Çarşamba">Çarşamba</option>
+                                <option value="Perşembe">Perşembe</option>
+                                <option value="Cuma">Cuma</option>
+                                <option value="Cumartesi">Cumartesi</option>
+                                <option value="Pazar">Pazar</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="start_time">Başlangıç Saati</label>
+                            <input type="time" class="form-control" id="start_time" name="start_time" required>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="end_time">Bitiş Saati</label>
+                            <input type="time" class="form-control" id="end_time" name="end_time" required>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="reason">Neden</label>
+                            <input type="text" class="form-control" id="reason" name="reason" placeholder="Opsiyonel">
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Ekle</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Mevcut müsait olmayan zamanlar -->
+    <div class="card">
+        <div class="card-header">
+            <h4>Mevcut Müsait Olmayan Zamanlar</h4>
+        </div>
+        <div class="card-body">
+            {% if unavailable_times %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Gün</th>
+                            <th>Başlangıç Saati</th>
+                            <th>Bitiş Saati</th>
+                            <th>Neden</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for time in unavailable_times %}
+                        <tr>
+                            <td>{{ time.day }}</td>
+                            <td>{{ time.start_time }}</td>
+                            <td>{{ time.end_time }}</td>
+                            <td>{{ time.reason or '-' }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('delete_unavailable_time', id=time.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Bu kaydı silmek istediğinizden emin misiniz?')">Sil</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted">Henüz müsait olmayan zaman eklenmemiş.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 
