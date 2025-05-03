@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Öğretim Üyesi Ders Programları</h2>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4>Öğretim Üyeleri</h4>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for instructor in instructors %}
+                        <a href="{{ url_for('instructor_schedules', instructor_id=instructor.id) }}" class="list-group-item list-group-item-action {% if selected_instructor and selected_instructor.id == instructor.id %}active{% endif %}">
+                            {{ instructor.name }} 
+                            {% if instructor.department %}
+                            <small>({{ instructor.department.code }})</small>
+                            {% endif %}
+                            {% if instructor.id == current_user.id %}
+                            <span class="badge bg-info">Siz</span>
+                            {% endif %}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            {% if selected_instructor %}
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4>{{ selected_instructor.name }} - Ders Programı</h4>
+                    {% if selected_instructor.department %}
+                    <small>{{ selected_instructor.department.name }} ({{ selected_instructor.department.code }})</small>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if schedule_items %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Gün</th>
+                                    <th>Ders Kodu</th>
+                                    <th>Ders Adı</th>
+                                    <th>Saat</th>
+                                    <th>Derslik</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for schedule in schedule_items|sort(attribute='day') %}
+                                <tr>
+                                    <td>{{ schedule.day }}</td>
+                                    <td>{{ schedule.course.code }}</td>
+                                    <td>{{ schedule.course.name }}</td>
+                                    <td>{{ schedule.start_time }}-{{ schedule.end_time }}</td>
+                                    <td>{{ schedule.classroom.code }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        Bu öğretim üyesine atanmış bir ders bulunmamaktadır.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h4>Haftalık Ders Programı Görünümü</h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Saat \ Gün</th>
+                                    {% for day in days %}
+                                    <th>{{ day }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for hour in hours %}
+                                <tr>
+                                    <td><strong>{{ hour }}</strong></td>
+                                    {% for day in days %}
+                                    <td>
+                                        {% for schedule in schedule_items %}
+                                        {% if schedule.day == day and (schedule.start_time <= hour and schedule.end_time > hour) %}
+                                        <div class="schedule-item">
+                                            <strong>{{ schedule.course.code }}</strong><br>
+                                            {{ schedule.course.name }}<br>
+                                            {{ schedule.start_time }}-{{ schedule.end_time }}<br>
+                                            <small class="text-muted">{{ schedule.classroom.code }}</small>
+                                        </div>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info mt-4">
+                Lütfen ders programını görüntülemek için bir öğretim üyesi seçiniz.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.schedule-item {
+    padding: 5px;
+    margin: 2px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+</style>
+{% endblock %} 

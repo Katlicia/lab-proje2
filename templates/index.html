@@ -58,6 +58,27 @@
                 </div>
             </div>
         </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Kişisel Ders Programım</h5>
+                        <p class="card-text">Sadece sizin verdiğiniz derslerin programını görüntüleyin.</p>
+                        <a href="{{ url_for('my_schedule') }}" class="btn btn-primary">Programımı Görüntüle</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Tüm Öğretim Üyeleri Programları</h5>
+                        <p class="card-text">Tüm öğretim üyelerinin ders programlarını görüntüleyin.</p>
+                        <a href="{{ url_for('instructor_schedules') }}" class="btn btn-primary">Öğretim Üyesi Seç</a>
+                    </div>
+                </div>
+            </div>
+        </div>
         {% endif %}
         
         <div class="row mt-4">

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Kişisel Ders Programım</h2>
+        <a href="{{ url_for('export_my_schedule') }}" class="btn btn-success">Excel'e Aktar</a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4>{{ current_user.name }} - Ders Programı</h4>
+        </div>
+        <div class="card-body">
+            {% if schedule_items %}
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Gün</th>
+                            <th>Ders Kodu</th>
+                            <th>Ders Adı</th>
+                            <th>Saat</th>
+                            <th>Derslik</th>
+                            <th>Bölüm</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for schedule in schedule_items|sort(attribute='day') %}
+                        <tr>
+                            <td>{{ schedule.day }}</td>
+                            <td>{{ schedule.course.code }}</td>
+                            <td>{{ schedule.course.name }}</td>
+                            <td>{{ schedule.start_time }}-{{ schedule.end_time }}</td>
+                            <td>{{ schedule.classroom.code }}</td>
+                            <td>
+                                {% for dept in schedule.course.departments %}
+                                <span class="badge bg-primary">{{ dept.code }}</span>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                Henüz ders programınızda atanmış bir ders bulunmamaktadır.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h4>Haftalık Ders Programı Görünümü</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Saat \ Gün</th>
+                            {% for day in days %}
+                            <th>{{ day }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for hour in hours %}
+                        <tr>
+                            <td><strong>{{ hour }}</strong></td>
+                            {% for day in days %}
+                            <td>
+                                {% for schedule in schedule_items %}
+                                {% if schedule.day == day and (schedule.start_time <= hour and schedule.end_time > hour) %}
+                                <div class="schedule-item">
+                                    <strong>{{ schedule.course.code }}</strong><br>
+                                    {{ schedule.course.name }}<br>
+                                    {{ schedule.start_time }}-{{ schedule.end_time }}<br>
+                                    <small class="text-muted">{{ schedule.classroom.code }}</small>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.schedule-item {
+    padding: 5px;
+    margin: 2px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+</style>
+{% endblock %} 
