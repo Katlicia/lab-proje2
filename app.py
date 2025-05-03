@@ -91,7 +91,11 @@ def login():
         # Kullanıcı varsa ve şifre doğruysa giriş yap
         if user and user.check_password(password):
             login_user(user)
-            return redirect(url_for('view_schedule'))
+            # Kullanıcı rolüne göre yönlendirme yap
+            if user.role == 'instructor':
+                return redirect(url_for('my_schedule'))
+            else:
+                return redirect(url_for('view_schedule'))
         
         # Giriş başarısızsa hata mesajı göster
         flash('Geçersiz kullanıcı adı veya şifre!', 'error')
@@ -1219,6 +1223,167 @@ def generate_schedule_route():
         flash("Lütfen bir dönem seçiniz.", 'error')
         
     return redirect(url_for('view_schedule'))
+
+# Öğretim üyesi kişisel ders programı görüntüleme sayfası
+@app.route('/my_schedule')
+@login_required
+def my_schedule():
+    """
+    Öğretim üyesinin kendi ders programını görüntüleme sayfası
+    Sadece giriş yapmış öğretim üyesi kendi derslerini görüntüleyebilir
+    """
+    if current_user.role != 'instructor':
+        flash('Bu sayfaya erişim yetkiniz yok.', 'error')
+        return redirect(url_for('index'))
+    
+    # Haftanın günleri
+    days = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
+    
+    # Saat dilimleri (09:00, 10:00, ... 17:00)
+    hours = []
+    for i in range(9, 18):
+        hours.append(f"{i:02d}:00")
+    
+    # Öğretim üyesinin verdiği dersleri bul
+    instructor_courses = Course.query.filter_by(instructor_id=current_user.id).all()
+    
+    # Ders programı öğelerini bul
+    schedule_items = []
+    for course in instructor_courses:
+        items = Schedule.query.filter_by(course_id=course.id).all()
+        schedule_items.extend(items)
+    
+    return render_template('my_schedule.html',
+                          schedule_items=schedule_items,
+                          days=days,
+                          hours=hours)
+
+
+# Öğretim üyelerinin ders programlarını görüntüleme sayfası
+@app.route('/instructor_schedules')
+@app.route('/instructor_schedules/<int:instructor_id>')
+@login_required
+def instructor_schedules(instructor_id=None):
+    """
+    Tüm öğretim üyelerinin ders programlarını görüntüleme sayfası
+    Giriş yapmış tüm kullanıcılar bu sayfayı görüntüleyebilir
+    """
+    if current_user.role != 'instructor' and current_user.role != 'admin':
+        flash('Bu sayfaya erişim yetkiniz yok.', 'error')
+        return redirect(url_for('index'))
+    
+    # Tüm öğretim üyelerini getir
+    instructors = User.query.filter_by(role='instructor').order_by(User.name).all()
+    
+    # Haftanın günleri
+    days = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
+    
+    # Saat dilimleri (09:00, 10:00, ... 17:00)
+    hours = []
+    for i in range(9, 18):
+        hours.append(f"{i:02d}:00")
+    
+    schedule_items = []
+    selected_instructor = None
+    
+    # Eğer bir öğretim üyesi seçilmişse
+    if instructor_id:
+        selected_instructor = User.query.filter_by(id=instructor_id, role='instructor').first_or_404()
+        
+        # Seçilen öğretim üyesinin verdiği dersleri bul
+        instructor_courses = Course.query.filter_by(instructor_id=instructor_id).all()
+        
+        # Ders programı öğelerini bul
+        for course in instructor_courses:
+            items = Schedule.query.filter_by(course_id=course.id).all()
+            schedule_items.extend(items)
+    else:
+        # Öğretim üyesi seçilmemişse ve kullanıcı bir öğretim üyesi ise, kendi programını göster
+        if current_user.role == 'instructor':
+            selected_instructor = current_user
+            instructor_courses = Course.query.filter_by(instructor_id=current_user.id).all()
+            
+            for course in instructor_courses:
+                items = Schedule.query.filter_by(course_id=course.id).all()
+                schedule_items.extend(items)
+    
+    return render_template('instructor_schedules.html',
+                          instructors=instructors,
+                          selected_instructor=selected_instructor,
+                          schedule_items=schedule_items,
+                          days=days,
+                          hours=hours)
+
+
+# Kişisel ders programını Excel'e aktarma
+@app.route('/export_my_schedule')
+@login_required
+def export_my_schedule():
+    """
+    Öğretim üyesinin kendi ders programını Excel'e aktarma
+    """
+    if current_user.role != 'instructor':
+        flash('Bu sayfaya erişim yetkiniz yok.', 'error')
+        return redirect(url_for('index'))
+    
+    # Öğretim üyesinin verdiği dersleri bul
+    instructor_courses = Course.query.filter_by(instructor_id=current_user.id).all()
+    
+    # Ders programı öğelerini bul
+    schedule_items = []
+    for course in instructor_courses:
+        items = Schedule.query.filter_by(course_id=course.id).all()
+        schedule_items.extend(items)
+    
+    # Excel dosyası oluştur
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Ders Programı"
+    
+    # Başlık satırı
+    headers = ["Gün", "Ders Kodu", "Ders Adı", "Saat", "Derslik", "Bölüm"]
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.value = header
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Verileri ekle
+    row_num = 2
+    for item in sorted(schedule_items, key=lambda x: (x.day, x.start_time)):
+        course = Course.query.get(item.course_id)
+        classroom = Classroom.query.get(item.classroom_id)
+        
+        # Bölüm adlarını birleştir
+        departments = ", ".join([dept.code for dept in course.departments])
+        
+        ws.cell(row=row_num, column=1).value = item.day
+        ws.cell(row=row_num, column=2).value = course.code
+        ws.cell(row=row_num, column=3).value = course.name
+        ws.cell(row=row_num, column=4).value = f"{item.start_time}-{item.end_time}"
+        ws.cell(row=row_num, column=5).value = classroom.code
+        ws.cell(row=row_num, column=6).value = departments
+        
+        row_num += 1
+    
+    # Sütun genişliklerini ayarla
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            if cell.value:
+                max_length = max(max_length, len(str(cell.value)))
+        adjusted_width = (max_length + 2)
+        ws.column_dimensions[column].width = adjusted_width
+    
+    # Dosyayı geçici olarak kaydet ve kullanıcıya gönder
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
+        wb.save(tmp.name)
+        tmp_file = tmp.name
+    
+    return send_file(tmp_file, 
+                    as_attachment=True, 
+                    download_name=f"{current_user.name}_Ders_Programi.xlsx")
 
 # Uygulama başlangıç kontrollerini yap ve sunucuyu başlat
 if __name__ == '__main__':

@@ -215,6 +215,14 @@
                         <a class="nav-link" href="{{ url_for('users') }}">Kullanıcılar</a>
                     </li>
                     {% endif %}
+                    {% if current_user.is_authenticated and current_user.role == 'instructor' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('my_schedule') }}">Kişisel Ders Programım</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('instructor_schedules') }}">Öğretim Üyeleri</a>
+                    </li>
+                    {% endif %}
                 </ul>
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item dropdown me-2">
