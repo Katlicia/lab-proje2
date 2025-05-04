@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Ders Seçimi</h2>
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Ders Seçme Paneli</h4>
+                </div>
+                <div class="card-body">
+                    {% if department_courses %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Ders Kodu</th>
+                                    <th>Ders Adı</th>
+                                    <th>Kredi</th>
+                                    <th>Teori</th>
+                                    <th>Uygulama</th>
+                                    <th>Yarıyıl</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for course in department_courses %}
+                                <tr>
+                                    <td>{{ course.code }}</td>
+                                    <td>{{ course.name }}</td>
+                                    <td>{{ course.credits }}</td>
+                                    <td>{{ course.theory }}</td>
+                                    <td>{{ course.practice }}</td>
+                                    <td>{{ course.semester }}</td>
+                                    <td>
+                                        {% if course not in selected_courses %}
+                                        <form action="{{ url_for('select_course', course_id=course.id) }}" method="POST" style="display: inline;">
+                                            <button type="submit" class="btn btn-success btn-sm">Seç</button>
+                                        </form>
+                                        {% else %}
+                                        <span class="text-success">Seçildi</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p>Bu bölümde ders bulunmamaktadır.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card mb-4 border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Seçtiğiniz Dersler</h5>
+                </div>
+                <div class="card-body">
+                    {% if selected_courses %}
+                    <ul class="list-group">
+                        {% for course in selected_courses %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>{{ course.code }} - {{ course.name }}</span>
+                            <form action="{{ url_for('drop_course', course_id=course.id) }}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-danger btn-sm">Bırak</button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p>Henüz ders seçmediniz.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

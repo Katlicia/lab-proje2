@@ -59,6 +59,19 @@
                         </div>
                     </div>
                 </div>
+                <div class="row">
+                    <div class="col-md-4" id="semester_field" style="display:none;">
+                        <div class="mb-3">
+                            <label for="current_semester" class="form-label">Yarıyıl</label>
+                            <select class="form-select" id="current_semester" name="current_semester">
+                                <option value="">Seçiniz</option>
+                                {% for i in range(1, 9) %}
+                                <option value="{{ i }}">{{ i }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
                 <button type="submit" class="btn btn-primary">Kullanıcı Ekle</button>
             </form>
         </div>
@@ -119,26 +132,58 @@ function showAdditionalFields() {
     const departmentField = document.getElementById('department_field');
     const extraField = document.getElementById('extra_field');
     const extraInfoLabel = document.getElementById('extra_info_label');
-    
+    const semesterField = document.getElementById('semester_field');
+    const semesterSelect = document.getElementById('current_semester');
+    const departmentSelect = document.getElementById('department_id');
+    const extraInfoInput = document.getElementById('extra_info');
     // Tüm ek alanları başlangıçta gizle
     departmentField.style.display = 'none';
     extraField.style.display = 'none';
-    
+    semesterField.style.display = 'none';
+    semesterSelect.removeAttribute('required');
+    departmentSelect.removeAttribute('required');
+    extraInfoInput.removeAttribute('required');
     // Rol tipine göre gösterilecek alanları belirle
     if (role === 'instructor') {
         departmentField.style.display = 'block';
         extraField.style.display = 'block';
         extraInfoLabel.innerText = 'Uzmanlık Alanı';
+        departmentSelect.removeAttribute('required');
+        extraInfoInput.removeAttribute('required');
     } else if (role === 'student') {
         departmentField.style.display = 'block';
         extraField.style.display = 'block';
         extraInfoLabel.innerText = 'Öğrenci Numarası';
+        semesterField.style.display = 'block';
+        semesterSelect.setAttribute('required', 'required');
+        departmentSelect.setAttribute('required', 'required');
+        extraInfoInput.setAttribute('required', 'required');
+    } else {
+        departmentSelect.removeAttribute('required');
+        extraInfoInput.removeAttribute('required');
+    }
+}
+
+function toggleSemesterField() {
+    var role = document.getElementById('role').value;
+    var semesterField = document.getElementById('semester-field');
+    var semesterSelect = document.getElementById('semester');
+    if (role === 'student') {
+        semesterField.style.display = '';
+        semesterSelect.setAttribute('required', 'required');
+    } else {
+        semesterField.style.display = 'none';
+        semesterSelect.removeAttribute('required');
+        semesterSelect.value = '';
     }
 }
 
 // Sayfa yüklendiğinde alanları doğru şekilde göster
 document.addEventListener('DOMContentLoaded', function() {
+    window.departmentSelect = document.getElementById('department_id');
+    window.extraInfoInput = document.getElementById('extra_info');
     showAdditionalFields();
+    toggleSemesterField();
 });
 
 // Kullanıcı silme formları için olay dinleyicisi

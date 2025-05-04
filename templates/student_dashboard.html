@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Öğrenci Paneli</h2>
+
+    <!-- Ana Butonlar -->
+    <div class="mb-4 d-flex gap-3">
+        <a href="#ders-secme" class="btn btn-lg btn-outline-primary">Ders Seçme</a>
+        <a href="#ders-programim" class="btn btn-lg btn-outline-success">Ders Programım</a>
+    </div>
+
+    <!-- Seçilen Dersler ve Ders Seçme Paneli -->
+    <div class="row" id="ders-secme">
+        <div class="col-md-6">
+            <div class="card mb-4 border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Seçilen Dersler</h4>
+                </div>
+                <div class="card-body">
+                    {% if selected_courses %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Ders Kodu</th>
+                                    <th>Ders Adı</th>
+                                    <th>Kredi</th>
+                                    <th>Teori</th>
+                                    <th>Uygulama</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for course in selected_courses %}
+                                <tr>
+                                    <td>{{ course.code }}</td>
+                                    <td>{{ course.name }}</td>
+                                    <td>{{ course.credits }}</td>
+                                    <td>{{ course.theory }}</td>
+                                    <td>{{ course.practice }}</td>
+                                    <td>
+                                        <form action="{{ url_for('drop_course', course_id=course.id) }}" method="POST" style="display: inline;">
+                                            <button type="submit" class="btn btn-danger btn-sm">Bırak</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p>Henüz ders seçmediniz.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-4 border-success">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Ders Seçme</h4>
+                </div>
+                <div class="card-body">
+                    <p>Mevcut Yarıyıl: {{ current_user.current_semester }}</p>
+                    {% if current_semester_courses %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Ders Kodu</th>
+                                    <th>Ders Adı</th>
+                                    <th>Kredi</th>
+                                    <th>Teori</th>
+                                    <th>Uygulama</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for course in current_semester_courses %}
+                                <tr>
+                                    <td>{{ course.code }}</td>
+                                    <td>{{ course.name }}</td>
+                                    <td>{{ course.credits }}</td>
+                                    <td>{{ course.theory }}</td>
+                                    <td>{{ course.practice }}</td>
+                                    <td>
+                                        {% if course not in selected_courses %}
+                                        <form action="{{ url_for('select_course', course_id=course.id) }}" method="POST" style="display: inline;">
+                                            <button type="submit" class="btn btn-success btn-sm">Seç</button>
+                                        </form>
+                                        {% else %}
+                                        <span class="text-success">Seçildi</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p>Bu yarıyıl için ders bulunmamaktadır.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ders Programı Paneli -->
+    <div class="card mb-4 border-info" id="ders-programim">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Ders Programım</h4>
+            <a href="{{ url_for('export_student_schedule') }}" class="btn btn-light btn-sm">Excel'e Aktar</a>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Saat</th>
+                            {% for day in days %}
+                            <th>{{ day }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for hour in range(9, 18) %}
+                        <tr>
+                            <td>{{ hour }}:00</td>
+                            {% for day in days %}
+                            <td>
+                                {% for item in schedule_items %}
+                                    {% set start = item.start_time.split(':')[0]|int %}
+                                    {% set end = item.end_time.split(':')[0]|int %}
+                                    {% set end_minute = item.end_time.split(':')[1]|int %}
+                                    {% if item.day == day and ((hour >= start and hour < end) or (hour == end and end_minute > 0)) %}
+                                        {% set course = Course.query.get(item.course_id) %}
+                                        {% set classroom = Classroom.query.get(item.classroom_id) %}
+                                        <div class="course-slot">
+                                            <strong>{{ course.code }}</strong><br>
+                                            {{ course.name }}<br>
+                                            {{ classroom.code }}<br>
+                                            {{ item.start_time }}-{{ item.end_time }}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.course-slot {
+    background-color: #e9ecef;
+    padding: 5px;
+    margin: 2px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+.btn-lg {
+    min-width: 180px;
+}
+</style>
+{% endblock %} 

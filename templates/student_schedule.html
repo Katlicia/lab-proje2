@@ -1,0 +1,98 @@
+{# Saat aralığı kontrolü: Bir dersin kapsadığı tüm saatlerde gösterilir. Bitiş dakikası > 0 ise bitiş saatinde de gösterilir. #}
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Ders Programım</h2>
+    <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Seçtiğiniz Dersler</h5>
+        </div>
+        <div class="card-body">
+            {% if selected_courses %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Ders Kodu</th>
+                            <th>Ders Adı</th>
+                            <th>Kredi</th>
+                            <th>Teori</th>
+                            <th>Uygulama</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for course in selected_courses %}
+                        <tr>
+                            <td>{{ course.code }}</td>
+                            <td>{{ course.name }}</td>
+                            <td>{{ course.credits }}</td>
+                            <td>{{ course.theory }}</td>
+                            <td>{{ course.practice }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p>Henüz ders seçmediniz.</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card mb-4 border-info">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Ders Programı</h5>
+            <a href="{{ url_for('export_student_schedule') }}" class="btn btn-light btn-sm">Excel'e Aktar</a>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Saat</th>
+                            {% for day in days %}
+                            <th>{{ day }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for hour in range(9, 18) %}
+                        <tr>
+                            <td>{{ hour }}:00</td>
+                            {% for day in days %}
+                            <td>
+                                {% for item in schedule_items %}
+                                    {% set start = item.start_time.split(':')[0]|int %}
+                                    {% set end = item.end_time.split(':')[0]|int %}
+                                    {% set end_minute = item.end_time.split(':')[1]|int %}
+                                    {% if item.day == day and ((hour >= start and hour < end) or (hour == end and end_minute > 0)) %}
+                                        {% set course = Course.query.get(item.course_id) %}
+                                        {% set classroom = Classroom.query.get(item.classroom_id) %}
+                                        <div class="course-slot">
+                                            <strong>{{ course.code }}</strong><br>
+                                            {{ course.name }}<br>
+                                            {{ classroom.code }}<br>
+                                            {{ item.start_time }}-{{ item.end_time }}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+.course-slot {
+    background-color: #e9ecef;
+    padding: 5px;
+    margin: 2px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+</style>
+{% endblock %} 

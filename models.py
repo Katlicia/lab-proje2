@@ -10,6 +10,15 @@ course_department = db.Table('course_department',
     db.Column('department_id', db.Integer, db.ForeignKey('departments.id'), primary_key=True)
 )
 
+# Öğrenci-Ders ilişki tablosu (many-to-many)
+student_course = db.Table('student_course',
+    db.Column('student_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
+    db.Column('course_id', db.Integer, db.ForeignKey('courses.id'), primary_key=True),
+    db.Column('semester', db.Integer, nullable=False),  # Hangi dönemde alındığı
+    db.Column('grade', db.Float),  # Ders notu (varsa)
+    db.Column('status', db.String(20), default='active')  # active, passed, failed
+)
+
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
 
@@ -23,11 +32,15 @@ class User(UserMixin, db.Model):
     # Yeni eklenen alanlar
     is_active = db.Column(db.Boolean, default=True)
     max_weekly_hours = db.Column(db.Integer, default=20)  # Haftalık maksimum ders saati
+    current_semester = db.Column(db.Integer, default=1)  # Öğrencinin mevcut yarıyılı
+    student_number = db.Column(db.String(20), unique=True)  # Öğrenci numarası
     
     # İlişkiler
     department = db.relationship('Department', backref='users')
     courses = db.relationship('Course', backref='instructor', lazy=True)
     unavailable_times = db.relationship('UnavailableTime', backref='instructor', lazy=True)
+    selected_courses = db.relationship('Course', secondary=student_course, 
+                                     backref=db.backref('students', lazy='dynamic'))
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)

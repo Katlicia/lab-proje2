@@ -9,7 +9,7 @@ import io
 import tempfile
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-from models import db, User, Department, Course, Classroom, Schedule, UnavailableTime, course_department
+from models import db, User, Department, Course, Classroom, Schedule, UnavailableTime, course_department, student_course
 from sqlalchemy import inspect, text
 import random
 
@@ -251,11 +251,28 @@ def users():
         name = request.form.get('name')
         department_id = request.form.get('department_id') if request.form.get('department_id') else None
         extra_info = request.form.get('extra_info')
+        current_semester = request.form.get('current_semester')
         
         # Aynı kullanıcı adıyla başka kullanıcı var mı kontrol et
         if User.query.filter_by(username=username).first():
             flash('Bu kullanıcı adı zaten kullanımda!', 'error')
             return redirect(url_for('users'))
+        
+        # Öğrenci ise yarıyıl, bölüm ve numara zorunlu
+        if role == 'student':
+            if (not current_semester or not current_semester.isdigit() or int(current_semester) < 1 or int(current_semester) > 8):
+                flash('Öğrenci için geçerli bir yarıyıl seçmelisiniz!', 'error')
+                return redirect(url_for('users'))
+            if not department_id:
+                flash('Öğrenci için bölüm seçmelisiniz!', 'error')
+                return redirect(url_for('users'))
+            if not extra_info:
+                flash('Öğrenci için öğrenci numarası girmelisiniz!', 'error')
+                return redirect(url_for('users'))
+            # Öğrenci numarası unique mi kontrol et
+            if User.query.filter_by(student_number=extra_info).first():
+                flash('Bu öğrenci numarası zaten kullanımda!', 'error')
+                return redirect(url_for('users'))
         
         # Yeni kullanıcı oluştur ve kaydet
         user = User(
@@ -265,7 +282,9 @@ def users():
             department_id=department_id
         )
         user.set_password(password)
-        
+        if role == 'student':
+            user.current_semester = int(current_semester)
+            user.student_number = extra_info
         db.session.add(user)
         db.session.commit()
         
@@ -1503,6 +1522,225 @@ def export_my_schedule():
                     as_attachment=True, 
                     download_name=f"{current_user.name}_Ders_Programi.xlsx")
 
+# Öğrenci ana sayfası
+@app.route('/student')
+@login_required
+def student_dashboard():
+    """
+    Öğrenci ana sayfası
+    - Seçilen dersleri göster
+    - Ders programını göster
+    - Ders seçme imkanı sun
+    """
+    if current_user.role != 'student':
+        flash('Bu sayfaya erişim yetkiniz yok.', 'error')
+        return redirect(url_for('index'))
+    
+    # Öğrencinin seçtiği dersleri getir
+    selected_courses = current_user.selected_courses
+    
+    # Öğrencinin bölümündeki dersleri getir
+    department_courses = Course.query.join(course_department).filter(
+        course_department.c.department_id == current_user.department_id
+    ).all()
+    
+    # Öğrencinin yarıyılındaki dersleri filtrele
+    current_semester_courses = [course for course in department_courses 
+                              if course.semester == current_user.current_semester]
+    
+    # Öğrencinin ders programını oluştur
+    schedule_items = []
+    for course in selected_courses:
+        items = Schedule.query.filter_by(course_id=course.id).all()
+        schedule_items.extend(items)
+    
+    # Haftanın günleri
+    days = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
+    
+    return render_template('student_dashboard.html',
+                         selected_courses=selected_courses,
+                         current_semester_courses=current_semester_courses,
+                         schedule_items=schedule_items,
+                         days=days,
+                         Course=Course,
+                         Classroom=Classroom)
+
+@app.route('/student/select_course/<int:course_id>', methods=['POST'])
+@login_required
+def select_course(course_id):
+    """
+    Öğrenci ders seçme işlemi
+    """
+    if current_user.role != 'student':
+        flash('Bu işlem için yetkiniz yok.', 'error')
+        return redirect(url_for('index'))
+    
+    try:
+        # Dersi bul
+        course = Course.query.get_or_404(course_id)
+        
+        # Dersin öğrencinin bölümünde olup olmadığını kontrol et
+        if not any(dept.id == current_user.department_id for dept in course.departments):
+            flash('Bu ders sizin bölümünüzde değil.', 'error')
+            return redirect(url_for('student_dashboard'))
+        
+        # Dersin yarıyılını kontrol et
+        if course.semester != current_user.current_semester:
+            flash('Bu ders sizin yarıyılınızda değil.', 'error')
+            return redirect(url_for('student_dashboard'))
+        
+        # Dersin çakışma kontrolü
+        course_schedule = Schedule.query.filter_by(course_id=course.id).first()
+        if course_schedule:
+            for selected_course in current_user.selected_courses:
+                selected_schedule = Schedule.query.filter_by(course_id=selected_course.id).first()
+                if selected_schedule:
+                    if (selected_schedule.day == course_schedule.day and
+                        ((selected_schedule.start_time <= course_schedule.start_time < selected_schedule.end_time) or
+                         (selected_schedule.start_time < course_schedule.end_time <= selected_schedule.end_time))):
+                        flash('Uyarı: Bu ders seçtiğiniz başka bir dersle çakışıyor.', 'warning')
+                        break
+        # Dersi seç
+        db.session.execute(
+            student_course.insert().values(
+                student_id=current_user.id,
+                course_id=course.id,
+                semester=current_user.current_semester,
+                status='active'
+            )
+        )
+        db.session.commit()
+        flash('Ders başarıyla seçildi.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash('Ders seçilirken bir hata oluştu.', 'error')
+        print(f"Hata: {str(e)}")
+    
+    return redirect(url_for('student_dashboard'))
+
+@app.route('/student/drop_course/<int:course_id>', methods=['POST'])
+@login_required
+def drop_course(course_id):
+    """
+    Öğrenci ders bırakma işlemi
+    """
+    if current_user.role != 'student':
+        flash('Bu işlem için yetkiniz yok.', 'error')
+        return redirect(url_for('index'))
+    
+    try:
+        # Dersi bul
+        course = Course.query.get_or_404(course_id)
+        
+        # Dersin seçili olup olmadığını kontrol et
+        if course not in current_user.selected_courses:
+            flash('Bu dersi seçmemişsiniz.', 'error')
+            return redirect(url_for('student_dashboard'))
+        
+        # Dersi bırak
+        current_user.selected_courses.remove(course)
+        db.session.commit()
+        flash('Ders başarıyla bırakıldı.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash('Ders bırakılırken bir hata oluştu.', 'error')
+        print(f"Hata: {str(e)}")
+    
+    return redirect(url_for('student_dashboard'))
+
+@app.route('/student/export_schedule')
+@login_required
+def export_student_schedule():
+    """
+    Öğrencinin ders programını Excel'e aktarma
+    """
+    if current_user.role != 'student':
+        flash('Bu işlem için yetkiniz yok.', 'error')
+        return redirect(url_for('index'))
+    
+    try:
+        # Excel çalışma kitabı oluştur
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Ders Programı"
+        
+        # Başlık satırı
+        headers = ["Gün", "Ders Kodu", "Ders Adı", "Saat", "Derslik", "Öğretim Üyesi"]
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_num)
+            cell.value = header
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal='center')
+        
+        # Verileri ekle
+        row_num = 2
+        for course in current_user.selected_courses:
+            schedule_items = Schedule.query.filter_by(course_id=course.id).all()
+            for item in schedule_items:
+                classroom = Classroom.query.get(item.classroom_id)
+                instructor = User.query.get(course.instructor_id) if course.instructor_id else None
+                
+                ws.cell(row=row_num, column=1).value = item.day
+                ws.cell(row=row_num, column=2).value = course.code
+                ws.cell(row=row_num, column=3).value = course.name
+                ws.cell(row=row_num, column=4).value = f"{item.start_time}-{item.end_time}"
+                ws.cell(row=row_num, column=5).value = classroom.code if classroom else "Belirtilmemiş"
+                ws.cell(row=row_num, column=6).value = instructor.name if instructor else "Atanmamış"
+                
+                row_num += 1
+        
+        # Sütun genişliklerini ayarla
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                if cell.value:
+                    max_length = max(max_length, len(str(cell.value)))
+            adjusted_width = (max_length + 2)
+            ws.column_dimensions[column].width = adjusted_width
+        
+        # Dosyayı geçici olarak kaydet ve kullanıcıya gönder
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
+            wb.save(tmp.name)
+            tmp_file = tmp.name
+        
+        return send_file(tmp_file, 
+                        as_attachment=True, 
+                        download_name=f"{current_user.name}_Ders_Programi.xlsx")
+        
+    except Exception as e:
+        flash('Ders programı dışa aktarılırken bir hata oluştu.', 'error')
+        print(f"Hata: {str(e)}")
+        return redirect(url_for('student_dashboard'))
+
+@app.route('/student/select')
+@login_required
+def student_select():
+    if current_user.role != 'student':
+        flash('Bu sayfaya erişim yetkiniz yok.', 'error')
+        return redirect(url_for('index'))
+    department_courses = Course.query.join(course_department).filter(
+        course_department.c.department_id == current_user.department_id
+    ).all()
+    selected_courses = current_user.selected_courses
+    return render_template('student_select.html', department_courses=department_courses, selected_courses=selected_courses)
+
+@app.route('/student/schedule')
+@login_required
+def student_schedule():
+    if current_user.role != 'student':
+        flash('Bu sayfaya erişim yetkiniz yok.', 'error')
+        return redirect(url_for('index'))
+    selected_courses = current_user.selected_courses
+    schedule_items = []
+    for course in selected_courses:
+        items = Schedule.query.filter_by(course_id=course.id).all()
+        schedule_items.extend(items)
+    days = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
+    return render_template('student_schedule.html', selected_courses=selected_courses, schedule_items=schedule_items, days=days, Course=Course, Classroom=Classroom)
+
 # Uygulama başlangıç kontrollerini yap ve sunucuyu başlat
 if __name__ == '__main__':
     """
@@ -1537,7 +1775,8 @@ if __name__ == '__main__':
         # Admin kullanıcısı oluştur (yoksa)
         admin = User.query.filter_by(username='admin').first()
         if not admin:
-            admin = User(username='admin', password='admin123', role='admin', name='Sistem Yöneticisi')
+            admin = User(username='admin', role='admin', name='Sistem Yöneticisi')
+            admin.set_password('admin123')
             db.session.add(admin)
             db.session.commit()
             print("Admin kullanıcısı oluşturuldu. Kullanıcı adı: admin, Şifre: admin123")
