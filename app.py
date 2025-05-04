@@ -431,8 +431,8 @@ def add_schedule():
             ).all()
             
             if unavailable_times:
-                print(f'Öğretim üyesi ({instructor.name}) bu zaman diliminde müsait değil!', 'error')
-                return False, None
+                flash(f'Öğretim üyesi ({instructor.name}) bu zaman diliminde müsait değil!', 'error')
+                return redirect(url_for('view_schedule'))
             
             # Öğretim üyesinin bu zaman diliminde başka dersi var mı kontrol et
             instructor_conflicts = Schedule.query.join(Course).filter(
@@ -452,7 +452,7 @@ def add_schedule():
                 # Öğretim üyesi çakışması varsa uyar
                 conflict_message = ", ".join(conflict_details)
                 print(f'Öğretim üyesi ({instructor.name}) başka derste meşgul', 'error')
-                return False, None
+                return redirect(url_for('view_schedule'))
 
         # Seçilen derslik ve zamanda başka ders var mı kontrol et
         classroom_conflicts = Schedule.query.filter(
