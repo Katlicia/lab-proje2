@@ -14,7 +14,10 @@ db.init_app(app)
 
 def setup_database():
     with app.app_context():
-        # Veritabanı tablolarını oluştur
+        # Veritabanı tablolarını sil ve yeniden oluştur
+        print("Veritabanı tabloları siliniyor...")
+        db.drop_all()
+        print("Veritabanı tabloları yeniden oluşturuluyor...")
         db.create_all()
         
         # Bölümleri ekle
@@ -172,7 +175,19 @@ def setup_database():
                 if dept:
                     # department_id yerine departments ilişkisini kullanıyoruz
                     # department_code parametresini kaldır
+                    dept_code = course_data['department_code']
                     del course_data['department_code']
+                    
+                    # Yeni alanlar için varsayılan değerleri ekle
+                    if 'course_type' not in course_data:
+                        course_type = 'yüzyüze'
+                        # Ders kodu Online ise otomatik olarak online yap
+                        if dept_code == 'Online':
+                            course_type = 'online'
+                        course_data['course_type'] = course_type
+                    
+                    if 'capacity' not in course_data:
+                        course_data['capacity'] = 30
                     
                     # Ders nesnesini oluştur
                     course = Course(**course_data)

@@ -70,6 +70,10 @@ class Course(db.Model):
     semester = db.Column(db.Integer, nullable=False)  # Yarıyıl
     instructor_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     
+    # Yeni alanlar
+    course_type = db.Column(db.String(20), default='yüzyüze')  # 'online' veya 'yüzyüze'
+    capacity = db.Column(db.Integer, default=30)  # Dersin kontenjanı
+    
     # department_id alanını kaldırıp, çoka-çok ilişki ekliyoruz
     departments = db.relationship('Department', secondary=course_department, 
                                  backref=db.backref('courses', lazy='dynamic'))

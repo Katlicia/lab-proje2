@@ -58,6 +58,17 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label for="course_type" class="form-label">Dersin Türü</label>
+                            <select class="form-select" id="course_type" name="course_type" required>
+                                <option value="yüzyüze">Yüzyüze</option>
+                                <option value="online">Online</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="capacity" class="form-label">Kontenjan</label>
+                            <input type="number" class="form-control" id="capacity" name="capacity" min="1" value="30" required>
+                        </div>
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="is_mandatory" name="is_mandatory" checked>
                             <label class="form-check-label" for="is_mandatory">
@@ -74,7 +85,12 @@
     <!-- Dersler tablosu -->
     <div class="card">
         <div class="card-header">
-            <h5 class="card-title mb-0">Dersler</h5>
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Dersler</h5>
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addCourseModal">
+                    <i class="bi bi-plus-circle me-1"></i> Ders Ekle
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -86,6 +102,8 @@
                             <th>Bölümler</th>
                             <th>Yarıyıl</th>
                             <th>Öğretim Üyesi</th>
+                            <th>Tür</th>
+                            <th>Kontenjan</th>
                             <th>İşlemler</th>
                         </tr>
                     </thead>
@@ -101,11 +119,14 @@
                             </td>
                             <td>{{ course.semester }}</td>
                             <td>{{ course.instructor.name if course.instructor else 'Atanmamış' }}</td>
+                            <td>{{ course.course_type|capitalize }}</td>
+                            <td>{{ course.capacity }}</td>
                             <td>
                                 <a href="{{ url_for('edit_course', course_id=course.id) }}" class="btn btn-sm btn-primary">Düzenle</a>
                                 <form action="{{ url_for('delete_course', course_id=course.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu dersi silmek istediğinize emin misiniz?')">
                                     <button type="submit" class="btn btn-sm btn-danger">Sil</button>
                                 </form>
+                                <a href="{{ url_for('export_attendance', course_id=course.id) }}" class="btn btn-sm btn-info">Excel</a>
                             </td>
                         </tr>
                         {% endfor %}

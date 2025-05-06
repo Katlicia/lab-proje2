@@ -162,6 +162,8 @@ def courses():
         instructor_id = request.form.get('instructor_id') if request.form.get('instructor_id') else None
         semester = request.form.get('semester', 1)
         is_mandatory = 'is_mandatory' in request.form
+        course_type = request.form.get('course_type', 'yüzyüze')
+        capacity = request.form.get('capacity', 30)
         
         # Aynı kodla başka ders var mı kontrol et
         if Course.query.filter_by(code=code).first():
@@ -182,7 +184,9 @@ def courses():
             credits=credits,
             instructor_id=instructor_id,
             semester=semester,
-            is_mandatory=is_mandatory
+            is_mandatory=is_mandatory,
+            course_type=course_type,
+            capacity=capacity
         )
         
         # Bölümleri ekle
@@ -626,6 +630,8 @@ def edit_course(course_id):
             instructor_id = request.form.get('instructor_id') if request.form.get('instructor_id') else None
             semester = request.form.get('semester', 1)
             is_mandatory = 'is_mandatory' in request.form
+            course_type = request.form.get('course_type', 'yüzyüze')
+            capacity = request.form.get('capacity', 30)
             
             # Seçilen bölümleri kontrol et
             if not department_ids:
@@ -640,6 +646,8 @@ def edit_course(course_id):
             course.instructor_id = instructor_id
             course.semester = semester
             course.is_mandatory = is_mandatory
+            course.course_type = course_type
+            course.capacity = capacity
             
             # Bölümleri güncelle - önce tüm bölümleri temizle, sonra yeniden ekle
             course.departments.clear()
@@ -1740,6 +1748,105 @@ def student_schedule():
         schedule_items.extend(items)
     days = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
     return render_template('student_schedule.html', selected_courses=selected_courses, schedule_items=schedule_items, days=days, Course=Course, Classroom=Classroom)
+
+# Ders için yoklama listesi Excel dosyası oluşturma endpoint'i
+@app.route('/export_attendance/<int:course_id>')
+@admin_required
+def export_attendance(course_id):
+    """
+    Belirtilen dersin yoklama listesini Excel formatında oluşturur
+    :param course_id: Ders ID'si
+    """
+    try:
+        # Dersi bul
+        course = Course.query.get_or_404(course_id)
+        
+        # Dersin bölümlerini bul (birden fazla olabilir)
+        departments = [dept.code for dept in course.departments]
+        department_text = ", ".join(departments) if departments else "Belirsiz"
+        
+        # Dersin öğrencilerini bul
+        students = User.query.join(student_course).filter(
+            student_course.c.course_id == course_id,
+            User.role == 'student'
+        ).order_by(User.name).all()
+        
+        # Excel çalışma kitabı oluştur
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Yoklama Listesi"
+        
+        # Tüm sütunları ayarla (A-J)
+        cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+        widths = [8, 15, 15, 20, 20, 12, 12, 8, 8, 8]  # Her sütun için genişlikler
+        
+        for i, col in enumerate(cols):
+            ws.column_dimensions[col].width = widths[i]
+        
+        # Başlık satırı
+        headers = ["BÖLÜM", "YARI YIL", "DERS KODU", "DERS ADI", "DERSİN ÖĞRETİM ÜYESİ", "DERSİN TÜRÜ", "DERSİN KONTENJANI", "", "", ""]
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_num)
+            cell.value = header
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        
+        # İçerik satırı
+        ws.cell(row=2, column=1).value = department_text
+        ws.cell(row=2, column=2).value = course.semester
+        ws.cell(row=2, column=3).value = course.code
+        ws.cell(row=2, column=4).value = course.name
+        ws.cell(row=2, column=5).value = course.instructor.name if course.instructor else "Atanmamış"
+        ws.cell(row=2, column=6).value = "YÜZYÜZE" if course.course_type == "yüzyüze" else "ONLINE"
+        ws.cell(row=2, column=7).value = course.capacity
+        
+        # SINIF LİSTESİ başlığı
+        ws.cell(row=4, column=1).value = "SINIF LİSTESİ"
+        ws.cell(row=4, column=1).font = Font(bold=True)
+        
+        # Hafta sütun başlıkları
+        for i in range(1, 8):  # 7 hafta
+            ws.cell(row=4, column=i+2).value = f"{i}. hafta"
+            ws.cell(row=4, column=i+2).font = Font(bold=True)
+            ws.cell(row=4, column=i+2).alignment = Alignment(horizontal='center')
+        
+        # Öğrenci verileri veya boş satırlar
+        # Kontenjan sayısı kadar satır oluştur
+        for i in range(1, course.capacity + 1):
+            row_num = i + 4  # SINIF LİSTESİ başlığından sonra
+            
+            # Sıra numarası
+            ws.cell(row=row_num, column=1).value = i
+            ws.cell(row=row_num, column=1).alignment = Alignment(horizontal='center')
+            
+            # Öğrenci bilgileri (varsa) - Fotoğraftaki formatta Öğrenci No ve Adı aynı sütunda
+            if i <= len(students):
+                student = students[i-1]
+                # Öğrenci no ve adı aynı sütunda göster
+                ws.cell(row=row_num, column=2).value = f"{student.student_number} {student.name}"
+            else:
+                # Boş hücre
+                ws.cell(row=row_num, column=2).value = ""
+        
+        # Geçici dosya oluştur ve Excel'i kaydet
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
+            wb.save(tmp.name)
+            tmp_path = tmp.name
+        
+        # Excel dosyasını kullanıcıya gönder
+        return send_file(
+            tmp_path,
+            as_attachment=True,
+            download_name=f"{course.code}_Yoklama_Listesi.xlsx",
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+    except Exception as e:
+        flash(f'Yoklama listesi oluşturulurken bir hata oluştu: {str(e)}', 'error')
+        print(f"\n=== Hata ===")
+        print(f"Hata mesajı: {str(e)}")
+        print("============\n")
+        return redirect(url_for('courses'))
 
 # Uygulama başlangıç kontrollerini yap ve sunucuyu başlat
 if __name__ == '__main__':

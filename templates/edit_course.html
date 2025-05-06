@@ -60,6 +60,17 @@
                         {% endfor %}
                     </select>
                 </div>
+                <div class="mb-3">
+                    <label for="course_type" class="form-label">Dersin Türü</label>
+                    <select class="form-select" id="course_type" name="course_type" required>
+                        <option value="yüzyüze" {% if course.course_type == 'yüzyüze' %}selected{% endif %}>Yüzyüze</option>
+                        <option value="online" {% if course.course_type == 'online' %}selected{% endif %}>Online</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="capacity" class="form-label">Kontenjan</label>
+                    <input type="number" class="form-control" id="capacity" name="capacity" min="1" value="{{ course.capacity }}" required>
+                </div>
                 <div class="form-check mb-3">
                     <input class="form-check-input" type="checkbox" id="is_mandatory" name="is_mandatory" 
                            {% if course.is_mandatory %}checked{% endif %}>
