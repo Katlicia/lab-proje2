@@ -140,6 +140,11 @@
                                     {% if schedule.course.instructor %}
                                     <small class="text-muted">{{ schedule.course.instructor.name }}</small>
                                     {% endif %}
+                                    {% if current_user.role == 'admin' %}
+                                    <form action="{{ url_for('delete_schedule', schedule_id=schedule.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu dersi programdan silmek istediğinize emin misiniz?')">
+                                        <button type="submit" class="btn btn-sm btn-danger mt-1">Sil</button>
+                                    </form>
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                                 {% endfor %}
@@ -155,6 +160,11 @@
                                     <small class="text-muted">{{ schedule.classroom.code }}</small><br>
                                     {% if schedule.course.instructor %}
                                     <small class="text-muted">{{ schedule.course.instructor.name }}</small>
+                                    {% endif %}
+                                    {% if current_user.role == 'admin' %}
+                                    <form action="{{ url_for('delete_schedule', schedule_id=schedule.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu dersi programdan silmek istediğinize emin misiniz?')">
+                                        <button type="submit" class="btn btn-sm btn-danger mt-1">Sil</button>
+                                    </form>
                                     {% endif %}
                                 </div>
                                 {% endif %}
@@ -172,6 +182,11 @@
                                     {% if schedule.course.instructor %}
                                     <small class="text-muted">{{ schedule.course.instructor.name }}</small>
                                     {% endif %}
+                                    {% if current_user.role == 'admin' %}
+                                    <form action="{{ url_for('delete_schedule', schedule_id=schedule.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu dersi programdan silmek istediğinize emin misiniz?')">
+                                        <button type="submit" class="btn btn-sm btn-danger mt-1">Sil</button>
+                                    </form>
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                                 {% endfor %}
@@ -187,6 +202,11 @@
                                     <small class="text-muted">{{ schedule.classroom.code }}</small><br>
                                     {% if schedule.course.instructor %}
                                     <small class="text-muted">{{ schedule.course.instructor.name }}</small>
+                                    {% endif %}
+                                    {% if current_user.role == 'admin' %}
+                                    <form action="{{ url_for('delete_schedule', schedule_id=schedule.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu dersi programdan silmek istediğinize emin misiniz?')">
+                                        <button type="submit" class="btn btn-sm btn-danger mt-1">Sil</button>
+                                    </form>
                                     {% endif %}
                                 </div>
                                 {% endif %}
@@ -235,6 +255,11 @@
                                     {% if schedule.course.instructor %}
                                     <small class="text-muted">{{ schedule.course.instructor.name }}</small>
                                     {% endif %}
+                                    {% if current_user.role == 'admin' %}
+                                    <form action="{{ url_for('delete_schedule', schedule_id=schedule.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu dersi programdan silmek istediğinize emin misiniz?')">
+                                        <button type="submit" class="btn btn-sm btn-danger mt-1">Sil</button>
+                                    </form>
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                                 {% endfor %}
@@ -250,6 +275,11 @@
                                     <small class="text-muted">{{ schedule.classroom.code }}</small><br>
                                     {% if schedule.course.instructor %}
                                     <small class="text-muted">{{ schedule.course.instructor.name }}</small>
+                                    {% endif %}
+                                    {% if current_user.role == 'admin' %}
+                                    <form action="{{ url_for('delete_schedule', schedule_id=schedule.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu dersi programdan silmek istediğinize emin misiniz?')">
+                                        <button type="submit" class="btn btn-sm btn-danger mt-1">Sil</button>
+                                    </form>
                                     {% endif %}
                                 </div>
                                 {% endif %}
@@ -267,6 +297,11 @@
                                     {% if schedule.course.instructor %}
                                     <small class="text-muted">{{ schedule.course.instructor.name }}</small>
                                     {% endif %}
+                                    {% if current_user.role == 'admin' %}
+                                    <form action="{{ url_for('delete_schedule', schedule_id=schedule.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu dersi programdan silmek istediğinize emin misiniz?')">
+                                        <button type="submit" class="btn btn-sm btn-danger mt-1">Sil</button>
+                                    </form>
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                                 {% endfor %}
@@ -282,6 +317,11 @@
                                     <small class="text-muted">{{ schedule.classroom.code }}</small><br>
                                     {% if schedule.course.instructor %}
                                     <small class="text-muted">{{ schedule.course.instructor.name }}</small>
+                                    {% endif %}
+                                    {% if current_user.role == 'admin' %}
+                                    <form action="{{ url_for('delete_schedule', schedule_id=schedule.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Bu dersi programdan silmek istediğinize emin misiniz?')">
+                                        <button type="submit" class="btn btn-sm btn-danger mt-1">Sil</button>
+                                    </form>
                                     {% endif %}
                                 </div>
                                 {% endif %}
