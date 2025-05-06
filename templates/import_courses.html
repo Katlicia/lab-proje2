@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Excel'den Ders Verisi İçe Aktar</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h5>Excel Dosyası Formatı:</h5>
+                        <p>Lütfen aşağıdaki sütunları içeren bir Excel dosyası yükleyin:</p>
+                        <ol>
+                            <li><strong>BÖLÜM</strong>: Bölüm kodu (örn. BLM, YZM)</li>
+                            <li><strong>YARI YIL</strong>: Dersin yarıyılı (1-8 arası sayı)</li>
+                            <li><strong>DERS KODU</strong>: Dersin kodu (örn. BLM101)</li>
+                            <li><strong>DERS ADI</strong>: Dersin adı</li>
+                            <li><strong>DERSİN ÖĞRETİM ÜYESİ</strong>: Öğretim üyesinin adı soyadı</li>
+                            <li><strong>DERSİN TÜRÜ</strong>: YÜZYÜZE veya ONLINE</li>
+                            <li><strong>DERSİN KONTENJANI</strong>: Dersin kontenjanı (sayı)</li>
+                        </ol>
+                        <p><strong>Not:</strong> İlk satır başlık olarak kabul edilecek ve atlanacaktır.</p>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <h5>Öğretim Üyeleri Hakkında Bilgi:</h5>
+                        <p>Excel dosyasından okunan öğretim üyeleri için:</p>
+                        <ul>
+                            <li>Kullanıcı adı, adının ilk 3 harfi + soyadının ilk 3 harfi olarak otomatik oluşturulacaktır (örn. "Naciye Naci" için "nacnac").</li>
+                            <li>Şifre varsayılan olarak "123" olarak ayarlanacaktır.</li>
+                            <li>Aynı kullanıcı adına sahip bir öğretim üyesi varsa, mevcut kullanıcı bilgileri korunacaktır.</li>
+                        </ul>
+                    </div>
+
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="form-group mb-3">
+                            <label for="excel_file">Excel Dosyası Seçin:</label>
+                            <input type="file" class="form-control" id="excel_file" name="excel_file" accept=".xlsx,.xls" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Yükle ve İçe Aktar</button>
+                        <a href="{{ url_for('courses') }}" class="btn btn-secondary">İptal</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
