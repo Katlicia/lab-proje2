@@ -12,6 +12,12 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from models import db, User, Department, Course, Classroom, Schedule, UnavailableTime, course_department, student_course
 from sqlalchemy import inspect, text
 import random
+from dotenv import load_dotenv
+load_dotenv()
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
 
 # =====================================================================================
 # Ders Programı Yönetim Sistemi
@@ -31,8 +37,8 @@ DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ders_program
 # Flask uygulamasını oluştur ve yapılandır
 app = Flask(__name__, template_folder=TEMPLATE_DIR)
 app.config['SECRET_KEY'] = 'gizli-anahtar-buraya'  # Güvenlik için session anahtarı
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + DB_PATH  # SQLite veritabanı bağlantısı
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Performans için takip özelliğini kapat
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Veritabanı ve giriş yöneticisini başlat
 db.init_app(app)
@@ -299,6 +305,32 @@ def users():
     users = User.query.all()
     departments = Department.query.all()
     return render_template('users.html', users=users, departments=departments)
+
+@app.route('/users/edit/<int:user_id>', methods=['GET', 'POST'])
+@admin_required
+def edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+    departments = Department.query.all()
+    if request.method == 'POST':
+        try:
+            user.name = request.form.get('name')
+            user.role = request.form.get('role')
+            department_id = request.form.get('department_id')
+            user.department_id = department_id if department_id else None
+            extra_info = request.form.get('extra_info')
+            current_semester = request.form.get('current_semester')
+            if user.role == 'student':
+                user.current_semester = int(current_semester) if current_semester else None
+                user.student_number = extra_info
+            if request.form.get('password'):
+                user.set_password(request.form.get('password'))
+            db.session.commit()
+            flash('Kullanıcı başarıyla güncellendi!', 'success')
+            return redirect(url_for('users'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Kullanıcı güncellenirken bir hata oluştu!', 'error')
+    return render_template('edit_user.html', user=user, departments=departments)
 
 # Kullanıcı silme endpoint'i
 @app.route('/users/delete/<int:user_id>', methods=['POST'])

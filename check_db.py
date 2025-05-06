@@ -1,12 +1,15 @@
 from flask import Flask
 from models import db, Department, Course, Classroom, User, Schedule
 import os
-
-# Göreceli yol kullanarak veritabanı dosyasını belirle
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ders_programi.db')
+from dotenv import load_dotenv
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + DB_PATH
+load_dotenv()
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)

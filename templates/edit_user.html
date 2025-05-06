@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Kullanıcıyı Düzenle: {{ user.username }}</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Kullanıcı Adı</label>
+                            <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" disabled>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Yeni Şifre (değiştirmek için doldurun)</label>
+                            <input type="password" class="form-control" id="password" name="password">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Ad Soyad</label>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ user.name }}">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Rol</label>
+                            <select class="form-select" id="role" name="role" required onchange="showAdditionalFields()">
+                                <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Yönetici</option>
+                                <option value="instructor" {% if user.role == 'instructor' %}selected{% endif %}>Öğretim Üyesi</option>
+                                <option value="student" {% if user.role == 'student' %}selected{% endif %}>Öğrenci</option>
+                                <option value="user" {% if user.role == 'user' %}selected{% endif %}>Standart Kullanıcı</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4" id="department_field" style="display:none;">
+                        <div class="mb-3">
+                            <label for="department_id" class="form-label">Bölüm</label>
+                            <select class="form-select" id="department_id" name="department_id">
+                                <option value="">Bölüm Seçin</option>
+                                {% for department in departments %}
+                                <option value="{{ department.id }}" {% if user.department_id == department.id %}selected{% endif %}>{{ department.code }} - {{ department.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4" id="extra_field" style="display:none;">
+                        <div class="mb-3">
+                            <label for="extra_info" id="extra_info_label" class="form-label">Ek Bilgi</label>
+                            <input type="text" class="form-control" id="extra_info" name="extra_info" value="{% if user.role == 'student' %}{{ user.student_number }}{% endif %}">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4" id="semester_field" style="display:none;">
+                        <div class="mb-3">
+                            <label for="current_semester" class="form-label">Yarıyıl</label>
+                            <select class="form-select" id="current_semester" name="current_semester">
+                                <option value="">Seçiniz</option>
+                                {% for i in range(1, 9) %}
+                                <option value="{{ i }}" {% if user.current_semester == i %}selected{% endif %}>{{ i }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+                <a href="{{ url_for('users') }}" class="btn btn-secondary">İptal</a>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+function showAdditionalFields() {
+    const role = document.getElementById('role').value;
+    const departmentField = document.getElementById('department_field');
+    const extraField = document.getElementById('extra_field');
+    const extraInfoLabel = document.getElementById('extra_info_label');
+    const semesterField = document.getElementById('semester_field');
+    const semesterSelect = document.getElementById('current_semester');
+    const departmentSelect = document.getElementById('department_id');
+    const extraInfoInput = document.getElementById('extra_info');
+    departmentField.style.display = 'none';
+    extraField.style.display = 'none';
+    semesterField.style.display = 'none';
+    semesterSelect.removeAttribute('required');
+    departmentSelect.removeAttribute('required');
+    extraInfoInput.removeAttribute('required');
+    if (role === 'instructor') {
+        departmentField.style.display = 'block';
+        extraField.style.display = 'block';
+        extraInfoLabel.innerText = 'Uzmanlık Alanı';
+        departmentSelect.removeAttribute('required');
+        extraInfoInput.removeAttribute('required');
+    } else if (role === 'student') {
+        departmentField.style.display = 'block';
+        extraField.style.display = 'block';
+        extraInfoLabel.innerText = 'Öğrenci Numarası';
+        semesterField.style.display = 'block';
+        semesterSelect.setAttribute('required', 'required');
+        departmentSelect.setAttribute('required', 'required');
+        extraInfoInput.setAttribute('required', 'required');
+    }
+}
+document.addEventListener('DOMContentLoaded', function() {
+    showAdditionalFields();
+});
+</script>
+{% endblock %} 

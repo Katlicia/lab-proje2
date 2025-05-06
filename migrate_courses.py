@@ -2,13 +2,21 @@ from flask import Flask
 import os
 from models import db, Department, Course, Classroom, User, Schedule, course_department
 from sqlalchemy import text, inspect
+from dotenv import load_dotenv
 
 # Göreceli yolları kullanarak dizinleri belirle
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ders_programi.db')
 
 # Flask uygulamasını oluştur ve yapılandır
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + DB_PATH
+
+# Veritabanı bağlantı bilgilerini .env dosyasından yükle
+load_dotenv()
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Veritabanını başlat
