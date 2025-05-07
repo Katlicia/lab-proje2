@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Sınıf Listesi İçe Aktar{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Sınıf Listesi İçe Aktar</h2>
+    
+    <div class="card mt-4">
+        <div class="card-header">
+            Excel Dosyası Yükle
+        </div>
+        <div class="card-body">
+            <p>Bir ders ve bu derse kayıtlı öğrencilerin listesini içeren Excel dosyasını yükleyin.</p>
+            
+            <div class="alert alert-info">
+                <h5>Excel Dosya Formatı</h5>
+                <ul>
+                    <li>Excel dosyası ders bilgilerini (BÖLÜM, YARI YIL, DERS KODU, vb.) içermeli</li>
+                    <li>"SINIF LİSTESİ" başlığının altında öğrenci numaraları ve isimleri olmalı</li>
+                    <li>Öğrenci numaraları ve isimler aynı hücrede olabilir (örn: "111017 Ahmet Yılmaz")</li>
+                </ul>
+            </div>
+            
+            <form action="{{ url_for('import_students') }}" method="post" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="excel_file">Excel Dosyası Seçin</label>
+                    <input type="file" class="form-control-file" id="excel_file" name="excel_file" required>
+                    <small class="form-text text-muted">Sadece .xlsx ve .xls uzantılı dosyalar kabul edilir.</small>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Yükle ve İçe Aktar</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <a href="{{ url_for('courses') }}" class="btn btn-secondary">Dersler Sayfasına Dön</a>
+    </div>
+</div>
+{% endblock %} 

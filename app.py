@@ -2054,6 +2054,245 @@ def import_courses():
     
     return render_template('import_courses.html')
 
+# Excel'den öğrenci listesini içeri aktarma endpoint'i
+@app.route('/import_students', methods=['GET', 'POST'])
+@admin_required
+def import_students():
+    """
+    Excel dosyasından bir ders ve öğrenci listesini içeri aktarır
+    GET: İçe aktarma formunu göster
+    POST: Excel dosyasını işle ve verileri içe aktar
+    """
+    if request.method == 'POST':
+        try:
+            # Dosya yüklenmiş mi kontrol et
+            if 'excel_file' not in request.files:
+                flash('Lütfen bir dosya seçin', 'error')
+                return redirect(request.url)
+                
+            file = request.files['excel_file']
+            
+            # Dosya adı boş mu kontrol et
+            if file.filename == '':
+                flash('Lütfen bir dosya seçin', 'error')
+                return redirect(request.url)
+                
+            # Excel dosyası mı kontrol et
+            if not file.filename.endswith(('.xlsx', '.xls')):
+                flash('Lütfen Excel dosyası (.xlsx veya .xls) seçin', 'error')
+                return redirect(request.url)
+            
+            # Dosyayı geçici bir dosyaya kaydet
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+            file.save(temp_file.name)
+            temp_file.close()
+            
+            # Excel dosyasını aç
+            print("\n=== Excel Dosyası Açılıyor ===")
+            try:
+                wb = load_workbook(temp_file.name)
+                ws = wb.active
+            except Exception as excel_error:
+                print(f"Excel dosyası açılırken hata: {str(excel_error)}")
+                flash(f'Excel dosyası açılırken hata: {str(excel_error)}', 'error')
+                return redirect(request.url)
+            
+            # İşleme sonuçları için sayaçlar
+            added_course = False
+            added_students = 0
+            existing_students = 0
+            
+            # Debug bilgileri 
+            print("\n=== Excel İçe Aktarma Başlıyor ===")
+            print(f"Excel dosyası satır sayısı: {ws.max_row}")
+            print(f"Excel dosyası sütun sayısı: {ws.max_column}")
+            
+            # Ders bilgilerini oku (A1-G2 hücreleri)
+            department_code = ws.cell(row=2, column=1).value  # BÖLÜM
+            semester = ws.cell(row=2, column=2).value  # YARI YIL
+            course_code = ws.cell(row=2, column=3).value  # DERS KODU
+            course_name = ws.cell(row=2, column=4).value  # DERS ADI
+            instructor_name = ws.cell(row=2, column=5).value  # DERSİN ÖĞRETİM ÜYESİ
+            course_type = ws.cell(row=2, column=6).value  # DERSİN TÜRÜ
+            capacity = ws.cell(row=2, column=7).value  # DERSİN KONTENJANI
+            
+            print(f"Okunan ders bilgileri: Bölüm={department_code}, Yarıyıl={semester}, Kod={course_code}, Ad={course_name}")
+            
+            if not course_code or not course_name:
+                flash('Excel dosyasında ders bilgileri bulunamadı', 'error')
+                return redirect(request.url)
+            
+            # Bölümü kontrol et ve gerekirse oluştur
+            department = Department.query.filter_by(code=department_code).first()
+            if not department:
+                department = Department(code=department_code, name=f"{department_code} Bölümü")
+                db.session.add(department)
+                db.session.commit()
+                print(f"Yeni bölüm oluşturuldu: {department_code}")
+            else:
+                print(f"Mevcut bölüm kullanılıyor: {department_code}")
+            
+            # Öğretim üyesini kontrol et ve gerekirse oluştur
+            instructor = None
+            if instructor_name and isinstance(instructor_name, str):
+                # İsim formatından kullanıcı adı oluştur
+                name_parts = instructor_name.strip().split()
+                if len(name_parts) >= 2:
+                    first_name = name_parts[0][:3].lower() if len(name_parts[0]) >= 3 else name_parts[0].lower()
+                    last_name = name_parts[-1][:3].lower() if len(name_parts[-1]) >= 3 else name_parts[-1].lower()
+                    username = f"{first_name}{last_name}"
+                    
+                    instructor = User.query.filter_by(username=username).first()
+                    if not instructor:
+                        instructor = User(
+                            username=username, 
+                            name=instructor_name,
+                            role='instructor'
+                        )
+                        instructor.set_password('123')
+                        db.session.add(instructor)
+                        db.session.commit()
+                        print(f"Yeni öğretim üyesi oluşturuldu: {instructor_name}")
+                    else:
+                        print(f"Mevcut öğretim üyesi kullanılıyor: {instructor_name}")
+            
+            # Ders türünü standart formata çevir
+            course_type_normalized = 'yüzyüze' if course_type and 'YÜZ' in str(course_type).upper() else 'online'
+            
+            # Dersi kontrol et ve gerekirse oluştur veya güncelle
+            course = Course.query.filter_by(code=course_code).first()
+            if not course:
+                course = Course(
+                    code=course_code,
+                    name=course_name,
+                    theory=2,  # Varsayılan değerler
+                    practice=0,
+                    credits=3,
+                    semester=int(semester) if isinstance(semester, (int, float)) else 1,
+                    instructor_id=instructor.id if instructor else None,
+                    course_type=course_type_normalized,
+                    capacity=int(capacity) if isinstance(capacity, (int, float)) else 30
+                )
+                course.departments.append(department)
+                db.session.add(course)
+                db.session.commit()
+                added_course = True
+                print(f"Yeni ders oluşturuldu: {course_code} - {course_name}")
+            else:
+                # Ders varsa güncelle
+                course.name = course_name
+                course.semester = int(semester) if isinstance(semester, (int, float)) else course.semester
+                if instructor:
+                    course.instructor_id = instructor.id
+                course.course_type = course_type_normalized
+                course.capacity = int(capacity) if isinstance(capacity, (int, float)) else course.capacity
+                
+                # Bölüm ilişkisini kontrol et ve ekle
+                if department not in course.departments:
+                    course.departments.append(department)
+                
+                db.session.commit()
+                print(f"Mevcut ders güncellendi: {course_code} - {course_name}")
+            
+            # ÖĞRENCİ LİSTESİNİ OKUMA STRATEJİSİ DEĞİŞTİRİLDİ
+            # Dosyayı tamamen tarayıp, öğrenci numarası olabilecek değerleri tespit edelim
+            print("\n=== Öğrenci Listesi Taranıyor (Yeni Yöntem) ===")
+            
+            # Excel dosyasında muhtemel öğrenci numaralarını bul (5 veya 6 haneli sayılar)
+            student_numbers = []
+            
+            # Excel dosyasını tamamen tara
+            for row in range(1, ws.max_row + 1):
+                for col in range(1, ws.max_column + 1):
+                    cell_value = ws.cell(row=row, column=col).value
+                    
+                    # Değer var mı kontrol et
+                    if cell_value:
+                        # Sayısal bir değer veya sayısal görünümlü string mi?
+                        try:
+                            # Önce string'e çevir, sonra temizle
+                            str_value = str(cell_value).strip()
+                            
+                            # 5 veya 6 haneli bir sayı mı?
+                            if str_value.isdigit() and (len(str_value) == 5 or len(str_value) == 6):
+                                print(f"Muhtemel öğrenci numarası bulundu: Satır {row}, Sütun {col}, Değer: {str_value}")
+                                student_numbers.append(str_value)
+                                
+                        except Exception as value_error:
+                            # Değer dönüştürme hatası, bu hücreyi atla
+                            continue
+            
+            print(f"Tespit edilen muhtemel öğrenci numarası sayısı: {len(student_numbers)}")
+            
+            # Bulunan öğrenci numaralarını sisteme ekle
+            for student_no in student_numbers:
+                # Varsayılan öğrenci adı oluştur
+                student_name = f"Öğrenci {student_no}"
+                
+                # Öğrenciyi kontrol et, yoksa oluştur
+                student = User.query.filter_by(student_number=student_no).first()
+                if not student:
+                    student = User(
+                        username=student_no,  # Kullanıcı adı öğrenci numarası
+                        name=student_name,
+                        role='student',
+                        student_number=student_no,
+                        department_id=department.id,
+                        current_semester=int(semester) if isinstance(semester, (int, float)) else 1
+                    )
+                    student.set_password('123')  # Şifre 123
+                    db.session.add(student)
+                    db.session.commit()
+                    added_students += 1
+                    print(f"Yeni öğrenci eklendi: {student_no} - {student_name}")
+                else:
+                    existing_students += 1
+                    print(f"Mevcut öğrenci: {student_no} - {student.name}")
+                
+                # Öğrenciyi derse kaydet (eğer henüz kayıtlı değilse)
+                if course not in student.selected_courses:
+                    try:
+                        # student_course tablosuna doğrudan ekle - semester alanını da ekleyerek
+                        db.session.execute(
+                            student_course.insert().values(
+                                student_id=student.id,
+                                course_id=course.id,
+                                semester=int(semester) if isinstance(semester, (int, float)) else 1,
+                                status='active'
+                            )
+                        )
+                        db.session.commit()
+                        print(f"Öğrenci {student_no} derse kaydedildi: {course_code}")
+                    except Exception as e:
+                        # Hata durumunda rollback yap
+                        db.session.rollback()
+                        print(f"Öğrenci derse eklenirken hata: {str(e)}")
+            
+            # Geçici dosyayı sil
+            os.unlink(temp_file.name)
+            
+            # Özet bilgileri yazdır
+            print("\n=== İçe Aktarma Özeti ===")
+            print(f"Ders durumu: {course_code} {'eklendi' if added_course else 'güncellendi'}")
+            print(f"Yeni öğrenci sayısı: {added_students}")
+            print(f"Mevcut öğrenci sayısı: {existing_students}")
+            
+            # Başarı mesajı göster
+            course_status = "eklendi" if added_course else "güncellendi"
+            flash(f'İçe aktarma tamamlandı: {course_code} dersi {course_status}, {added_students} yeni öğrenci eklendi, {existing_students} mevcut öğrenci derse kaydedildi.', 'success')
+            return redirect(url_for('courses'))
+            
+        except Exception as e:
+            flash(f'İçe aktarma sırasında bir hata oluştu: {str(e)}', 'error')
+            print(f"\n=== Hata ===")
+            print(f"Hata mesajı: {str(e)}")
+            print(f"Hata türü: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
+            print("============\n")
+    
+    return render_template('import_students.html')
+
 # Uygulama başlangıç kontrollerini yap ve sunucuyu başlat
 if __name__ == '__main__':
     """
